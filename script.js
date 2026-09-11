@@ -1487,24 +1487,41 @@ function renderResumen() {
   document.getElementById('resumen-insumos-detalle').textContent = fmtMoney(totalInsumos);
   document.getElementById('resumen-personal-detalle').textContent = fmtMoney(totalPersonal + totalViejo);
 
-  // Ganancia real de la producción: lo vendido, menos SOLO lo gastado en
-  // insumos (harina, queso, bolsas...). Los gastos personales no cuentan
-  // acá porque no son un costo de hacer chipá, son plata tuya aparte.
-  const ganancia = totalChipa - totalInsumos;
-  const gananciaEl = document.getElementById('resumen-ganancia');
-  if (gananciaEl) {
-    gananciaEl.textContent = fmtMoney(ganancia);
-    gananciaEl.style.color = ganancia >= 0 ? 'var(--green)' : 'var(--red)';
-  }
-
   const fechaRef = new Date(fechaReferenciaVentas());
   const nombrePeriodo = periodoVentas === 'dia' ? 'hoy' : periodoVentas === 'semana' ? 'esta semana' : (mesOffsetVentas === 0 ? 'este mes' : fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }));
 
+  const gananciaLabelEl = document.getElementById('resumen-ganancia-label');
+  const gananciaEl = document.getElementById('resumen-ganancia');
+  const filaVendiste = document.getElementById('fila-vendiste-detalle');
+  const filaInsumos = document.getElementById('fila-insumos-detalle');
+
+  if (periodoVentas === 'dia') {
+    // Comprás insumos cada tanto (una vez por semana, cada dos semanas...),
+    // no todos los días. Restar la compra de insumos en el mismo día que se
+    // hizo da números falsos (un día parece pérdida total, otro parece
+    // 100% ganancia). Por eso en "Día" solo mostramos lo vendido, sin restar.
+    if (gananciaLabelEl) gananciaLabelEl.textContent = 'Vendiste hoy';
+    if (gananciaEl) {
+      gananciaEl.textContent = fmtMoney(totalChipa);
+      gananciaEl.style.color = 'var(--text)';
+    }
+    if (filaVendiste) filaVendiste.style.display = 'none';
+    if (filaInsumos) filaInsumos.style.display = 'none';
+  } else {
+    // En Semana o Mes ya entra tanto lo comprado como lo vendido con eso,
+    // así que la resta (ganancia real) tiene sentido.
+    const ganancia = totalChipa - totalInsumos;
+    if (gananciaLabelEl) gananciaLabelEl.textContent = 'Ganancia de ' + nombrePeriodo;
+    if (gananciaEl) {
+      gananciaEl.textContent = fmtMoney(ganancia);
+      gananciaEl.style.color = ganancia >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+    if (filaVendiste) filaVendiste.style.display = 'flex';
+    if (filaInsumos) filaInsumos.style.display = 'flex';
+  }
+
   const totalLabelEl = document.getElementById('ventas-total-label');
   if (totalLabelEl) totalLabelEl.textContent = 'Total de ' + nombrePeriodo + ' (ventas − todos los gastos)';
-
-  const gananciaLabelEl = document.getElementById('resumen-ganancia-label');
-  if (gananciaLabelEl) gananciaLabelEl.textContent = 'Ganancia de ' + nombrePeriodo;
 
   // Navegador de mes: solo se ve con "Mes" elegido, y muestra qué mes estás mirando.
   const navLabelEl = document.getElementById('mes-navegador-label');

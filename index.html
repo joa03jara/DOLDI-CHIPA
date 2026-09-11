@@ -198,15 +198,15 @@
 
       <div class="card" id="ventas-list" style="display:none;"></div>
 
-      <!-- El único número que importa de un vistazo: la Ganancia -->
+      <!-- El único número que importa de un vistazo: la Ganancia (en Semana/Mes) o simplemente lo vendido (en Día) -->
       <div class="card">
         <div class="ganancia-label" id="resumen-ganancia-label" style="margin-bottom:6px;">Ganancia de hoy</div>
         <div class="ganancia-num" id="resumen-ganancia">$0</div>
-        <div class="prod-row" style="margin-top:10px; padding:10px 0;">
+        <div id="fila-vendiste-detalle" class="prod-row" style="margin-top:10px; padding:10px 0; display:none;">
           <div class="prod-name">Vendiste</div>
           <div class="stock-num" id="resumen-chipa" style="font-size:16px;">$0</div>
         </div>
-        <div class="prod-row">
+        <div id="fila-insumos-detalle" class="prod-row" style="display:none;">
           <div class="prod-name">Gastaste en insumos</div>
           <div class="stock-num" id="resumen-insumos-detalle" style="font-size:16px;">$0</div>
         </div>
