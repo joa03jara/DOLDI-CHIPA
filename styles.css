@@ -1071,6 +1071,21 @@ main {
   border-bottom: 1px solid var(--border);
 }
 .historial-row:last-child { border-bottom: none; }
+.ganancia-label {
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-2);
+}
+.ganancia-num {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+}
+
 .tabs-underline {
   display: flex;
   gap: 22px;
