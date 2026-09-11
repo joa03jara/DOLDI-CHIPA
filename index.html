@@ -188,10 +188,16 @@
         <button data-periodo="semana" onclick="cambiarPeriodoVentas('semana')">Semana</button>
         <button data-periodo="mes" onclick="cambiarPeriodoVentas('mes')">Mes</button>
       </div>
+      <div id="mes-navegador" style="display:none; align-items:center; justify-content:center; gap:14px; margin:10px 0 4px;">
+        <button class="btn btn-ghost btn-sm" onclick="moverMesVentas(-1)" style="padding:6px 12px; font-size:16px;">‹</button>
+        <span id="mes-navegador-label" style="font-weight:700; font-size:14px; min-width:150px; text-align:center;"></span>
+        <button class="btn btn-ghost btn-sm" id="mes-navegador-siguiente" onclick="moverMesVentas(1)" style="padding:6px 12px; font-size:16px;">›</button>
+      </div>
       <div class="total-banner">
         <div class="big" id="ventas-total">$0</div>
         <div class="lbl" id="ventas-total-label">Total de hoy (Doldi Chipa + Remis)</div>
       </div>
+      <div class="lbl" id="ventas-total-historico" style="text-align:center; margin:-8px 0 14px; color:var(--text-2); font-size:12px;">Total vendido desde siempre: $0</div>
       <div class="card" id="ventas-list" style="display:none;"></div>
       <div class="card">
         <div class="prod-row">
@@ -223,6 +229,17 @@
       <div class="card">
         <div id="historial-lista"></div>
       </div>
+    </section>
+
+    <!-- DEBE (quién me debe plata) -->
+    <section class="tab-panel" id="tab-debe">
+      <div class="section-title">Debe</div>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Pedidos que entregaste pero todavía no te pagaron. Ordenados del más viejo al más nuevo.</p>
+      <div class="total-banner">
+        <div class="big" id="debe-total">$0</div>
+        <div class="lbl">Total que te deben</div>
+      </div>
+      <div class="card" id="debe-lista"></div>
     </section>
 
     <!-- CLIENTES Y PUNTOS -->
@@ -386,6 +403,14 @@
       </svg>
       Ventas
     </button>
+    <button class="drawer-item" data-tab="debe" onclick="irATab('debe')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 8v4l3 2" />
+      </svg>
+      Debe
+      <span id="debe-badge" style="display:none; margin-left:auto; background:var(--red); color:#fff; font-size:11px; font-weight:800; border-radius:10px; padding:1px 7px;">0</span>
+    </button>
     <button class="drawer-item" data-tab="clientes" onclick="irATab('clientes')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2l2.6 6.5L21 9l-5 4.4L17.5 21 12 17.3 6.5 21 8 13.4 3 9l6.4-.5z" />
@@ -439,6 +464,12 @@
       <div class="form-field" id="venta-fecha-wrap" style="margin-top:10px; margin-bottom:14px; display:none;">
         <label>Fecha y hora de la venta</label>
         <input type="datetime-local" id="venta-fecha-hora" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--bg); color:var(--text);">
+      </div>
+
+      <p class="muted" style="margin:16px 0 6px; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.3px;">¿Ya te pagó?</p>
+      <div class="grid2" style="margin-bottom:4px;">
+        <div class="qty-btn active" id="pago-venta-pagado" onclick="elegirPagoVenta('pagado')">Pagado</div>
+        <div class="qty-btn" id="pago-venta-debe" onclick="elegirPagoVenta('debe')">Debe</div>
       </div>
 
       <button class="btn btn-green btn-block" style="margin-top:10px;" onclick="confirmarVenta()">Confirmar pedido</button>

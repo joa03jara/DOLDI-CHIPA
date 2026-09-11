@@ -198,6 +198,7 @@ function attachListeners() {
     renderVentas();
     renderStock();
     renderResumen();
+    renderDebe();
   }, () => {
     showToast('No se pudo leer el historial de ventas');
   });
@@ -643,6 +644,7 @@ function irATab(name) {
     renderVentas();
     renderResumen();
   } else if (name === 'remis') renderRemis();
+  else if (name === 'debe') renderDebe();
   else if (name === 'vender') renderVender();
   else if (name === 'clientes') {
     renderPremios();
@@ -1015,11 +1017,35 @@ async function guardarPrecios() {
 }
 
 let periodoVentas = 'dia';
+let mesOffsetVentas = 0; // 0 = mes actual, -1 = mes anterior, -2 = dos meses atrás, etc.
 
 function cambiarPeriodoVentas(p) {
   periodoVentas = p;
+  mesOffsetVentas = 0; // al cambiar de pestaña, arranca siempre en el mes actual
   historialExpandido = new Set(); // al cambiar de período, arranca todo cerrado
   document.querySelectorAll('#tab-ventas .segmented button[data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === p));
+  const nav = document.getElementById('mes-navegador');
+  if (nav) nav.style.display = (p === 'mes') ? 'flex' : 'none';
+  renderVentas();
+  renderResumen();
+}
+
+// Devuelve la fecha "de referencia" para calcular el período actual: si es
+// "Mes" y el usuario navegó hacia atrás, apunta a ese mes en vez de a hoy.
+function fechaReferenciaVentas() {
+  if (periodoVentas === 'mes' && mesOffsetVentas !== 0) {
+    const d = new Date();
+    d.setDate(1); // evita saltos raros de días al cambiar de mes
+    d.setMonth(d.getMonth() + mesOffsetVentas);
+    return d.getTime();
+  }
+  return Date.now();
+}
+
+function moverMesVentas(delta) {
+  const nuevoOffset = mesOffsetVentas + delta;
+  if (nuevoOffset > 0) return; // no se puede ir "al futuro"
+  mesOffsetVentas = nuevoOffset;
   renderVentas();
   renderResumen();
 }
@@ -1075,9 +1101,11 @@ function renderFilasVentas(subgrupos, opts) {
     // Un solo ícono representativo (el del primer producto del grupo).
     const iconoProd = sg.items[0].prod;
     const idsJson = JSON.stringify(sg.ids).replace(/"/g, '&quot;');
+    const debeTag = sg.items[0].pagado === false ?
+      `<button class="qty-pill" style="background:var(--red); color:#fff; border:none; margin-left:6px;" onclick='marcarVentaPagada(${idsJson}, ${sg.monto})' title="Tocá para marcar como pagado">Debe</button>` : '';
     return `<div class="venta-item">
       <div class="prod-icon" style="width:30px; height:30px; border-radius:8px;">${prodIconHtml(iconoProd,15)}</div>
-      <div style="flex:1;"><div class="p">${nombresTxt}${envioTxt}</div><div class="t">${clienteTxt}${fechaTxt}${hora}</div></div>
+      <div style="flex:1;"><div class="p">${nombresTxt}${envioTxt}${debeTag}</div><div class="t">${clienteTxt}${fechaTxt}${hora}</div></div>
       <div class="m">${fmtMoney(sg.monto)}</div>
       <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick='eliminarGrupoVentaUI(${idsJson})'>✕</button>
     </div>`;
@@ -1087,7 +1115,7 @@ function renderFilasVentas(subgrupos, opts) {
 function renderVentas() {
   // El resumen "por producto" muestra el período actual elegido arriba
   // (Día = hoy, Semana = esta semana, Mes = este mes).
-  const rangoActual = claveYEtiquetaPeriodo(Date.now(), periodoVentas);
+  const rangoActual = claveYEtiquetaPeriodo(fechaReferenciaVentas(), periodoVentas);
   let list = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin);
   const resumen = document.getElementById('ventas-resumen');
   let resumenHtml = '<h2>Total vendido por producto</h2>';
@@ -1407,7 +1435,7 @@ async function confirmarAjustarCaja() {
 /* ================= RESUMEN GENERAL (comparte el período con Ventas) ================= */
 
 function renderResumen() {
-  const rangoActual = claveYEtiquetaPeriodo(Date.now(), periodoVentas);
+  const rangoActual = claveYEtiquetaPeriodo(fechaReferenciaVentas(), periodoVentas);
   const ventasList = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin);
   const totalChipa = ventasList.reduce((s, v) => s + v.monto, 0);
   const remisList = STATE.remis.filter(m => m.ts >= rangoActual.inicio && m.ts < rangoActual.fin);
@@ -1418,9 +1446,33 @@ function renderResumen() {
   document.getElementById('ventas-total').textContent = fmtMoney(total);
   document.getElementById('resumen-chipa').textContent = fmtMoney(totalChipa);
   document.getElementById('resumen-remis').textContent = fmtMoney(netoRemis);
-  const etiquetaTotal = periodoVentas === 'dia' ? 'Total de hoy' : periodoVentas === 'semana' ? 'Total de esta semana' : 'Total de este mes';
+  const fechaRef = new Date(fechaReferenciaVentas());
+  let etiquetaTotal;
+  if (periodoVentas === 'dia') etiquetaTotal = 'Total de hoy';
+  else if (periodoVentas === 'semana') etiquetaTotal = 'Total de esta semana';
+  else if (mesOffsetVentas === 0) etiquetaTotal = 'Total de este mes';
+  else {
+    const nombreMes = fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    etiquetaTotal = 'Total de ' + nombreMes;
+  }
   const totalLabelEl = document.getElementById('ventas-total-label');
   if (totalLabelEl) totalLabelEl.textContent = etiquetaTotal + ' (Doldi Chipa + Remis)';
+
+  // Navegador de mes: solo se ve con "Mes" elegido, y muestra qué mes estás mirando.
+  const navLabelEl = document.getElementById('mes-navegador-label');
+  const navSiguienteEl = document.getElementById('mes-navegador-siguiente');
+  if (navLabelEl) {
+    const nombreMesNav = fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    navLabelEl.textContent = nombreMesNav.charAt(0).toUpperCase() + nombreMesNav.slice(1);
+  }
+  if (navSiguienteEl) navSiguienteEl.style.opacity = (mesOffsetVentas === 0) ? '0.3' : '1';
+
+  // Total histórico: todo lo vendido de Doldi Chipa desde siempre, sin
+  // restar gastos ni nada de Remis. Es solo para consulta.
+  const totalHistorico = STATE.ventas.reduce((s, v) => s + v.monto, 0);
+  const totalHistoricoEl = document.getElementById('ventas-total-historico');
+  if (totalHistoricoEl) totalHistoricoEl.textContent = 'Total vendido desde siempre: ' + fmtMoney(totalHistorico);
+
   renderHistorial();
 }
 
@@ -1571,7 +1623,82 @@ function renderHistorial() {
   }).join('');
 }
 
-/* ================= PREMIOS (catálogo) ================= */
+/* ================= DEBE (ventas entregadas pero no cobradas) ================= */
+
+function renderDebe() {
+  const wrap = document.getElementById('debe-lista');
+  const totalEl = document.getElementById('debe-total');
+  const badgeEl = document.getElementById('debe-badge');
+  if (!wrap) return;
+
+  const pendientes = STATE.ventas.filter(v => v.pagado === false).sort((a, b) => a.ts - b.ts); // más viejo primero
+  const total = pendientes.reduce((s, v) => s + v.monto, 0);
+  if (totalEl) totalEl.textContent = fmtMoney(total);
+  if (badgeEl) {
+    if (pendientes.length > 0) {
+      badgeEl.style.display = 'inline-block';
+      badgeEl.textContent = pendientes.length;
+    } else {
+      badgeEl.style.display = 'none';
+    }
+  }
+
+  if (pendientes.length === 0) {
+    wrap.innerHTML = '<div class="empty">Nadie te debe nada por ahora 🎉</div>';
+    return;
+  }
+
+  const ahora = Date.now();
+  const haceTexto = ms => {
+    const min = Math.floor(ms / 60000);
+    if (min < 60) return 'hace ' + Math.max(1, min) + ' min';
+    const horas = Math.floor(min / 60);
+    if (horas < 24) return 'hace ' + horas + (horas === 1 ? ' hora' : ' horas');
+    const dias = Math.floor(horas / 24);
+    return 'hace ' + dias + (dias === 1 ? ' día' : ' días');
+  };
+
+  const subgrupos = agruparVentasPorPedido(pendientes);
+  wrap.innerHTML = subgrupos.map(sg => {
+    const nombre = sg.items[0].clienteNombre || 'Sin nombre';
+    const nombresTxt = sg.items.map(i => {
+      const nombreProd = STATE.productos[i.prod] ? STATE.productos[i.prod].label : i.prod;
+      return i.qtyLabel ? (i.qtyLabel + ' de ' + nombreProd) : nombreProd;
+    }).join(', ');
+    const idsJson = JSON.stringify(sg.ids).replace(/"/g, '&quot;');
+    return `<div class="venta-item">
+      <div style="flex:1;">
+        <div class="p">${nombre}</div>
+        <div class="t">${nombresTxt} · ${haceTexto(ahora - sg.ts)}</div>
+      </div>
+      <div class="m">${fmtMoney(sg.monto)}</div>
+      <button class="btn btn-sm btn-green" style="padding:6px 10px; margin-left:8px;" onclick='marcarVentaPagada(${idsJson}, ${sg.monto})'>Marcar pagado</button>
+    </div>`;
+  }).join('');
+}
+
+// Marca como pagadas una o más ventas (las de un mismo pedido) y recién en
+// ese momento suma esa plata a la Caja (antes no estaba contada, porque no
+// la tenías en la mano).
+async function marcarVentaPagada(ids, monto) {
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
+    return;
+  }
+  try {
+    await Promise.all(ids.map(id => db.collection('doldichipa_ventas').doc(id).update({
+      pagado: true
+    })));
+    STATE.caja.total = (STATE.caja.total || 0) + monto;
+    await saveCaja();
+    showToast('Marcado como pagado · ' + fmtMoney(monto));
+    renderCaja();
+  } catch (e) {
+    showToast('No se pudo marcar como pagado, probá de nuevo');
+  }
+}
+
+
 function labelTipoPremio(tipo) {
   return {
     envio_gratis: 'Envío gratis',
@@ -2210,6 +2337,7 @@ function abrirFinalizarPedido() {
   document.getElementById('venta-fecha-hora').value = toDatetimeLocalValue(new Date());
   document.getElementById('venta-fecha-wrap').style.display = 'none';
   document.getElementById('venta-fecha-toggle').style.display = 'block';
+  elegirPagoVenta('pagado');
   mostrarOverlay('overlay-confirm');
 }
 
@@ -2231,6 +2359,13 @@ function aplicarDescuentoAItems(items, descuentoTotal) {
 }
 
 let confirmandoVenta = false; // evita duplicar la venta si se toca "Confirmar pedido" varias veces seguidas
+let pagoVentaActual = 'pagado'; // 'pagado' o 'debe' — elegido en el modal de confirmar pedido
+
+function elegirPagoVenta(valor) {
+  pagoVentaActual = valor;
+  document.getElementById('pago-venta-pagado').classList.toggle('active', valor === 'pagado');
+  document.getElementById('pago-venta-debe').classList.toggle('active', valor === 'debe');
+}
 
 async function confirmarVenta() {
   if (confirmandoVenta) return;
@@ -2302,6 +2437,19 @@ async function confirmarVentaInterno() {
     const parsed = new Date(fechaInput.value);
     if (!isNaN(parsed.getTime())) tsElegido = parsed.getTime();
   }
+
+  // Nombre a mostrar en "Debe" si esta venta queda pendiente de cobro.
+  let clienteNombreVenta = pedidoClienteVentaAhora || '';
+  if (!clienteNombreVenta && clienteVentaActual) {
+    if (clienteVentaActual.esNuevo) {
+      const nombreInputTmp = document.getElementById('venta-cliente-nombre');
+      clienteNombreVenta = nombreInputTmp ? nombreInputTmp.value.trim() : '';
+    } else {
+      clienteNombreVenta = clienteVentaActual.nombre || '';
+    }
+  }
+  const pagadoVenta = pagoVentaActual !== 'debe';
+
   const ventaPromises = items.map((item, i) => {
     const esUltimo = i === items.length - 1;
     return addVenta({
@@ -2312,16 +2460,22 @@ async function confirmarVentaInterno() {
       qtyLabel: item.label,
       monto: item.monto + (esUltimo ? envioMonto : 0),
       envio: esUltimo ? envioSeleccionado : null,
-      pedidoId: pedidoOrigenId
+      pedidoId: pedidoOrigenId,
+      pagado: pagadoVenta,
+      clienteNombre: clienteNombreVenta || null
     });
   });
 
   const promesas = [saveStock(), ...ventaPromises];
 
-  // Sumar el total de esta venta a la caja
+  // Sumar el total de esta venta a la caja SOLO si ya está pagada. Si quedó
+  // "Debe", esa plata todavía no la tenés en la mano: se suma recién cuando
+  // se marque como pagada (ver marcarVentaPagada).
   const totalVenta = items.reduce((s, i) => s + i.monto, 0) + envioMonto;
-  STATE.caja.total = (STATE.caja.total || 0) + totalVenta;
-  promesas.push(saveCaja());
+  if (pagadoVenta) {
+    STATE.caja.total = (STATE.caja.total || 0) + totalVenta;
+    promesas.push(saveCaja());
+  }
 
   // Si hay un cliente cargado, sumar/descontar sus puntos también en paralelo
   if (clienteVentaActual) {
@@ -2347,7 +2501,7 @@ async function confirmarVentaInterno() {
   // falla, se avisa más abajo con un cartel.
   const total = items.reduce((s, i) => s + i.monto, 0) + envioMonto;
   cerrarModal('overlay-confirm');
-  showToast('Pedido registrado · ' + fmtMoney(total) + (premioSeleccionadoVenta ? ' · Premio aplicado: ' + premioSeleccionadoVenta.nombre : ''));
+  showToast((pagadoVenta ? 'Pedido registrado · ' : '⏳ Pedido registrado como DEBE · ') + fmtMoney(total) + (premioSeleccionadoVenta ? ' · Premio aplicado: ' + premioSeleccionadoVenta.nombre : ''));
 
   // Dejar rastro en la libreta de pedidos (para "Completados hoy"): si esta
   // venta venía de un pedido en espera, se marca ese mismo como listo; si
@@ -2381,6 +2535,7 @@ async function confirmarVentaInterno() {
   renderVentas();
   renderCaja();
   renderPedidos();
+  renderDebe();
 
   // Recién ahora esperamos que las escrituras terminen de viajar a Firebase,
   // pero ya en segundo plano (el usuario no lo ve). Si alguna falla de
