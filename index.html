@@ -223,15 +223,20 @@
           <div class="stock-num" id="resumen-personal-detalle">$0</div>
         </div>
         <div class="prod-row">
-          <div class="prod-name" id="ventas-total-label">Total del período</div>
+          <div class="prod-name" id="ventas-total-label">Total neto</div>
           <div class="stock-num" id="ventas-total">$0</div>
         </div>
         <div class="prod-row">
-          <div class="prod-name">Vendido desde siempre</div>
+          <div class="prod-name">Vendido siempre</div>
           <div class="stock-num" id="ventas-total-historico">$0</div>
         </div>
-        <div style="border-top:1px solid var(--border); margin-top:6px; padding-top:10px;" id="ventas-resumen"></div>
       </div>
+
+      <button class="detalle-toggle" id="btn-por-producto" onclick="toggleVentasPorProducto()">
+        <span>Vendido por producto</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+      <div id="ventas-resumen" class="card" style="display:none;"></div>
 
       <div class="section-title clickeable" style="margin-top:26px; font-size:18px;" id="evolucion-header" onclick="toggleEvolucion()">
         <span>Evolución</span>

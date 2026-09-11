@@ -1070,6 +1070,14 @@ function toggleEvolucion() {
   header.classList.toggle('abierto', !abierto);
 }
 
+function toggleVentasPorProducto() {
+  const wrap = document.getElementById('ventas-resumen');
+  const btn = document.getElementById('btn-por-producto');
+  const abierto = wrap.style.display === 'block';
+  wrap.style.display = abierto ? 'none' : 'block';
+  btn.classList.toggle('abierto', !abierto);
+}
+
 // Agrupa ventas por pedido: si un cliente compró varias cosas en el mismo
 // pedido (ej: chipá + factura), aparecen juntas en una sola fila, no una
 // fila por cada producto. La reusan tanto el buscador como el acordeón
@@ -1138,7 +1146,7 @@ function renderVentas() {
   const rangoActual = claveYEtiquetaPeriodo(fechaReferenciaVentas(), periodoVentas);
   let list = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin);
   const resumen = document.getElementById('ventas-resumen');
-  let resumenHtml = '<h2>Total vendido por producto</h2>';
+  let resumenHtml = '';
   productosOrdenados().forEach(prod => {
     const p = STATE.productos[prod];
     const sumQty = list.filter(v => v.prod === prod).reduce((s, v) => s + (v.qty || 0), 0);
@@ -1521,7 +1529,7 @@ function renderResumen() {
   }
 
   const totalLabelEl = document.getElementById('ventas-total-label');
-  if (totalLabelEl) totalLabelEl.textContent = 'Total de ' + nombrePeriodo + ' (ventas − todos los gastos)';
+  if (totalLabelEl) totalLabelEl.textContent = 'Total neto';
 
   // Navegador de mes: solo se ve con "Mes" elegido, y muestra qué mes estás mirando.
   const navLabelEl = document.getElementById('mes-navegador-label');
