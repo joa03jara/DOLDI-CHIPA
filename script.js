@@ -1291,12 +1291,22 @@ function cambiarRangoRemis(r) {
 
 function renderRemis() {
   const list = filtrarPorRango(STATE.remis.slice().sort((a, b) => b.ts - a.ts), rangoRemis);
-  const ingresos = list.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0);
-  const gastos = list.filter(m => m.tipo === 'gasto').reduce((s, m) => s + m.monto, 0);
-  const neto = ingresos - gastos;
-  document.getElementById('remis-neto').textContent = fmtMoney(neto);
-  document.getElementById('remis-ingresos').textContent = fmtMoney(ingresos);
-  document.getElementById('remis-gastos').textContent = fmtMoney(gastos);
+
+  // Los movimientos viejos (de cuando esta sección era "Remis") no tienen
+  // categoría cargada; se agrupan aparte para no perderlos ni mezclarlos
+  // con los nuevos gastos de Insumos/Personal.
+  const esInsumos = m => m.categoria === 'insumos';
+  const esPersonal = m => m.categoria === 'personal';
+  const esViejo = m => !m.categoria;
+
+  const totalInsumos = list.filter(esInsumos).reduce((s, m) => s + m.monto, 0);
+  const totalPersonal = list.filter(esPersonal).reduce((s, m) => s + m.monto, 0);
+  const totalViejo = list.filter(esViejo).reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
+  const totalGastado = totalInsumos + totalPersonal + totalViejo;
+
+  document.getElementById('remis-neto').textContent = fmtMoney(totalGastado);
+  document.getElementById('remis-ingresos').textContent = fmtMoney(totalInsumos);
+  document.getElementById('remis-gastos').textContent = fmtMoney(totalPersonal);
 
   const wrap = document.getElementById('remis-list');
   if (list.length === 0) {
@@ -1312,12 +1322,14 @@ function renderRemis() {
       hour: '2-digit',
       minute: '2-digit'
     });
-    const esIngreso = m.tipo === 'ingreso';
-    const signo = esIngreso ? '+' : '−';
-    const color = esIngreso ? 'var(--green)' : 'var(--red)';
-    const label = m.concepto ? m.concepto : (esIngreso ? 'Ingreso' : 'Gasto');
+    const esIngresoViejo = m.tipo === 'ingreso';
+    const emoji = esInsumos(m) ? '🧀' : esPersonal(m) ? '🧍' : (esIngresoViejo ? '🟢' : '🔴');
+    const etiquetaCategoria = esInsumos(m) ? '' : esPersonal(m) ? '' : ' (histórico Remis)';
+    const signo = esIngresoViejo ? '+' : '−';
+    const color = esIngresoViejo ? 'var(--green)' : 'var(--red)';
+    const label = (m.concepto ? m.concepto : (esIngresoViejo ? 'Ingreso' : 'Gasto')) + etiquetaCategoria;
     return `<div class="venta-item">
-      <div><div class="p">${esIngreso?'🟢':'🔴'} ${label}</div><div class="t">${hora}</div></div>
+      <div><div class="p">${emoji} ${label}</div><div class="t">${hora}</div></div>
       <div class="m" style="color:${color};">${signo} ${fmtMoney(m.monto)}</div>
       <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick="eliminarRemisUI('${m.id}')">✕</button>
     </div>`;
@@ -1357,16 +1369,17 @@ async function eliminarRemisConfirmado(id) {
   renderResumen();
 }
 
-let remisMovTipo = 'ingreso';
+let remisMovCategoria = 'insumos'; // 'insumos' o 'personal' — ya no se registran ingresos acá
 
-function abrirRemisMov(tipo) {
-  remisMovTipo = tipo;
-  document.getElementById('remis-mov-title').textContent = tipo === 'ingreso' ? 'Registrar ingreso' : 'Registrar gasto';
-  document.getElementById('remis-mov-btn').className = 'btn btn-block ' + (tipo === 'ingreso' ? 'btn-green' : 'btn-rust');
+function abrirRemisMov(categoria) {
+  remisMovCategoria = categoria;
+  document.getElementById('remis-mov-title').textContent = categoria === 'insumos' ? 'Registrar gasto de insumos' : 'Registrar gasto personal';
+  document.getElementById('remis-mov-btn').className = 'btn btn-block ' + (categoria === 'insumos' ? 'btn-rust' : 'btn-gold');
   document.getElementById('remis-mov-monto').value = '';
   document.getElementById('remis-mov-monto').style.borderColor = 'var(--border)';
   document.getElementById('remis-mov-concepto').value = '';
   document.getElementById('remis-mov-concepto').style.borderColor = 'var(--border)';
+  document.getElementById('remis-mov-concepto').placeholder = categoria === 'insumos' ? 'Ej: Harina, queso, bolsas...' : 'Ej: Nafta, sándwich, gaseosa...';
   mostrarOverlay('overlay-remis-mov');
 }
 async function confirmarRemisMov() {
@@ -1389,15 +1402,16 @@ async function confirmarRemisMov() {
 
   const ok = await addRemisMov({
     ts: Date.now(),
-    tipo: remisMovTipo,
+    tipo: 'gasto',
+    categoria: remisMovCategoria,
     monto,
     concepto
   });
   if (ok) {
-    STATE.caja.total = (STATE.caja.total || 0) + (remisMovTipo === 'ingreso' ? monto : -monto);
+    STATE.caja.total = (STATE.caja.total || 0) - monto;
     await saveCaja();
     cerrarModal('overlay-remis-mov');
-    showToast((remisMovTipo === 'ingreso' ? 'Ingreso' : 'Gasto') + ' registrado');
+    showToast((remisMovCategoria === 'insumos' ? 'Gasto de insumos' : 'Gasto personal') + ' registrado');
     renderCaja();
   }
 }
@@ -1439,13 +1453,29 @@ function renderResumen() {
   const ventasList = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin);
   const totalChipa = ventasList.reduce((s, v) => s + v.monto, 0);
   const remisList = STATE.remis.filter(m => m.ts >= rangoActual.inicio && m.ts < rangoActual.fin);
-  const ingresos = remisList.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0);
-  const gastos = remisList.filter(m => m.tipo === 'gasto').reduce((s, m) => s + m.monto, 0);
-  const netoRemis = ingresos - gastos;
-  const total = totalChipa + netoRemis;
+  // Ya no se registran ingresos acá (dejaste de trabajar de remis). Los
+  // movimientos viejos sin categoría se siguen respetando para no perder
+  // el historial: si eran "ingreso" restan del total gastado, si eran
+  // "gasto" suman, igual que siempre.
+  const totalInsumos = remisList.filter(m => m.categoria === 'insumos').reduce((s, m) => s + m.monto, 0);
+  const totalPersonal = remisList.filter(m => m.categoria === 'personal').reduce((s, m) => s + m.monto, 0);
+  const totalViejo = remisList.filter(m => !m.categoria).reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
+  const totalGastos = totalInsumos + totalPersonal + totalViejo;
+  const total = totalChipa - totalGastos;
   document.getElementById('ventas-total').textContent = fmtMoney(total);
   document.getElementById('resumen-chipa').textContent = fmtMoney(totalChipa);
-  document.getElementById('resumen-remis').textContent = fmtMoney(netoRemis);
+  document.getElementById('resumen-remis').textContent = fmtMoney(-totalGastos);
+
+  // Ganancia real de la producción: lo vendido, menos SOLO lo gastado en
+  // insumos (harina, queso, bolsas...). Los gastos personales no cuentan
+  // acá porque no son un costo de hacer chipá, son plata tuya aparte.
+  const ganancia = totalChipa - totalInsumos;
+  const gananciaEl = document.getElementById('resumen-ganancia');
+  if (gananciaEl) {
+    gananciaEl.textContent = fmtMoney(ganancia);
+    gananciaEl.style.color = ganancia >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+
   const fechaRef = new Date(fechaReferenciaVentas());
   let etiquetaTotal;
   if (periodoVentas === 'dia') etiquetaTotal = 'Total de hoy';
@@ -1456,7 +1486,10 @@ function renderResumen() {
     etiquetaTotal = 'Total de ' + nombreMes;
   }
   const totalLabelEl = document.getElementById('ventas-total-label');
-  if (totalLabelEl) totalLabelEl.textContent = etiquetaTotal + ' (Doldi Chipa + Remis)';
+  if (totalLabelEl) totalLabelEl.textContent = etiquetaTotal + ' (Doldi Chipa − Gastos)';
+
+  const gananciaLabelEl = document.getElementById('resumen-ganancia-label');
+  if (gananciaLabelEl) gananciaLabelEl.textContent = 'Ganancia de ' + (periodoVentas === 'dia' ? 'hoy' : periodoVentas === 'semana' ? 'esta semana' : (mesOffsetVentas === 0 ? 'este mes' : fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }))) + ' (ventas − insumos)';
 
   // Navegador de mes: solo se ve con "Mes" elegido, y muestra qué mes estás mirando.
   const navLabelEl = document.getElementById('mes-navegador-label');
@@ -2337,7 +2370,12 @@ function abrirFinalizarPedido() {
   document.getElementById('venta-fecha-hora').value = toDatetimeLocalValue(new Date());
   document.getElementById('venta-fecha-wrap').style.display = 'none';
   document.getElementById('venta-fecha-toggle').style.display = 'block';
-  elegirPagoVenta('pagado');
+  pagoVentaActual = null;
+  document.getElementById('pago-venta-pagado').classList.remove('active');
+  document.getElementById('pago-venta-debe').classList.remove('active');
+  document.getElementById('pago-venta-pagado').style.cssText = '';
+  document.getElementById('pago-venta-debe').style.cssText = '';
+  document.getElementById('btn-confirmar-pedido').disabled = true;
   mostrarOverlay('overlay-confirm');
 }
 
@@ -2359,17 +2397,36 @@ function aplicarDescuentoAItems(items, descuentoTotal) {
 }
 
 let confirmandoVenta = false; // evita duplicar la venta si se toca "Confirmar pedido" varias veces seguidas
-let pagoVentaActual = 'pagado'; // 'pagado' o 'debe' — elegido en el modal de confirmar pedido
+let pagoVentaActual = null; // 'pagado' o 'debe' — null hasta que el usuario elige uno
 
 function elegirPagoVenta(valor) {
   pagoVentaActual = valor;
-  document.getElementById('pago-venta-pagado').classList.toggle('active', valor === 'pagado');
-  document.getElementById('pago-venta-debe').classList.toggle('active', valor === 'debe');
+  const btnPagado = document.getElementById('pago-venta-pagado');
+  const btnDebe = document.getElementById('pago-venta-debe');
+  // Se resetean los dos y después se pinta solo el elegido, para que nunca
+  // queden los dos coloreados a la vez.
+  btnPagado.classList.remove('active');
+  btnDebe.classList.remove('active');
+  btnPagado.style.cssText = '';
+  btnDebe.style.cssText = '';
+  if (valor === 'pagado') {
+    btnPagado.classList.add('active');
+    btnPagado.style.cssText = 'background:var(--green); border-color:var(--green); color:#fff;';
+  } else {
+    btnDebe.classList.add('active');
+    btnDebe.style.cssText = 'background:var(--red); border-color:var(--red); color:#fff;';
+  }
+  const btnConfirmar = document.getElementById('btn-confirmar-pedido');
+  if (btnConfirmar) btnConfirmar.disabled = false;
 }
 
 async function confirmarVenta() {
   if (confirmandoVenta) return;
   if (carrito.length === 0) return;
+  if (!pagoVentaActual) {
+    showToast('Elegí si el pedido está Pagado o si Debe');
+    return;
+  }
   if (typeof envioSeleccionado === 'undefined') {
     showToast('Elegí una opción de envío (o "Sin envío") antes de confirmar');
     return;
