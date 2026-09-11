@@ -1536,7 +1536,7 @@ function renderResumen() {
   // restar gastos ni nada de Remis. Es solo para consulta.
   const totalHistorico = STATE.ventas.reduce((s, v) => s + v.monto, 0);
   const totalHistoricoEl = document.getElementById('ventas-total-historico');
-  if (totalHistoricoEl) totalHistoricoEl.textContent = 'Total vendido desde siempre: ' + fmtMoney(totalHistorico);
+  if (totalHistoricoEl) totalHistoricoEl.textContent = fmtMoney(totalHistorico);
 
   renderHistorial();
 }
