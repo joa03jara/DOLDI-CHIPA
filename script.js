@@ -1023,7 +1023,7 @@ function cambiarPeriodoVentas(p) {
   periodoVentas = p;
   mesOffsetVentas = 0; // al cambiar de pestaña, arranca siempre en el mes actual
   historialExpandido = new Set(); // al cambiar de período, arranca todo cerrado
-  document.querySelectorAll('#tab-ventas .segmented button[data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === p));
+  document.querySelectorAll('#tab-ventas .tabs-underline button[data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === p));
   const nav = document.getElementById('mes-navegador');
   if (nav) nav.style.display = (p === 'mes') ? 'flex' : 'none';
   renderVentas();
@@ -1048,6 +1048,26 @@ function moverMesVentas(delta) {
   mesOffsetVentas = nuevoOffset;
   renderVentas();
   renderResumen();
+}
+
+// Todo lo que no sea "la Ganancia" queda escondido atrás de este botón,
+// para que la pantalla de Ventas no abrume con números.
+function toggleDetalleVentas() {
+  const wrap = document.getElementById('detalle-ventas');
+  const btn = document.getElementById('btn-detalle-ventas');
+  const abierto = wrap.style.display === 'block';
+  wrap.style.display = abierto ? 'none' : 'block';
+  btn.classList.toggle('abierto', !abierto);
+}
+
+// "Evolución" arranca cerrada del todo (ni siquiera se ven los días) y se
+// despliega recién al tocarla.
+function toggleEvolucion() {
+  const wrap = document.getElementById('evolucion-wrap');
+  const header = document.getElementById('evolucion-header');
+  const abierto = wrap.style.display === 'block';
+  wrap.style.display = abierto ? 'none' : 'block';
+  header.classList.toggle('abierto', !abierto);
 }
 
 // Agrupa ventas por pedido: si un cliente compró varias cosas en el mismo
@@ -1323,13 +1343,13 @@ function renderRemis() {
       minute: '2-digit'
     });
     const esIngresoViejo = m.tipo === 'ingreso';
-    const emoji = esInsumos(m) ? '🧀' : esPersonal(m) ? '🧍' : (esIngresoViejo ? '🟢' : '🔴');
-    const etiquetaCategoria = esInsumos(m) ? '' : esPersonal(m) ? '' : ' (histórico Remis)';
+    const emoji = esInsumos(m) || esPersonal(m) ? '' : (esIngresoViejo ? '🟢 ' : '🔴 ');
+    const etiquetaCategoria = esInsumos(m) ? ' (Producción)' : esPersonal(m) ? ' (Personal)' : ' (histórico Remis)';
     const signo = esIngresoViejo ? '+' : '−';
     const color = esIngresoViejo ? 'var(--green)' : 'var(--red)';
     const label = (m.concepto ? m.concepto : (esIngresoViejo ? 'Ingreso' : 'Gasto')) + etiquetaCategoria;
     return `<div class="venta-item">
-      <div><div class="p">${emoji} ${label}</div><div class="t">${hora}</div></div>
+      <div><div class="p">${emoji}${label}</div><div class="t">${hora}</div></div>
       <div class="m" style="color:${color};">${signo} ${fmtMoney(m.monto)}</div>
       <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick="eliminarRemisUI('${m.id}')">✕</button>
     </div>`;
@@ -1464,7 +1484,8 @@ function renderResumen() {
   const total = totalChipa - totalGastos;
   document.getElementById('ventas-total').textContent = fmtMoney(total);
   document.getElementById('resumen-chipa').textContent = fmtMoney(totalChipa);
-  document.getElementById('resumen-remis').textContent = fmtMoney(-totalGastos);
+  document.getElementById('resumen-insumos-detalle').textContent = fmtMoney(totalInsumos);
+  document.getElementById('resumen-personal-detalle').textContent = fmtMoney(totalPersonal + totalViejo);
 
   // Ganancia real de la producción: lo vendido, menos SOLO lo gastado en
   // insumos (harina, queso, bolsas...). Los gastos personales no cuentan
@@ -1477,19 +1498,13 @@ function renderResumen() {
   }
 
   const fechaRef = new Date(fechaReferenciaVentas());
-  let etiquetaTotal;
-  if (periodoVentas === 'dia') etiquetaTotal = 'Total de hoy';
-  else if (periodoVentas === 'semana') etiquetaTotal = 'Total de esta semana';
-  else if (mesOffsetVentas === 0) etiquetaTotal = 'Total de este mes';
-  else {
-    const nombreMes = fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-    etiquetaTotal = 'Total de ' + nombreMes;
-  }
+  const nombrePeriodo = periodoVentas === 'dia' ? 'hoy' : periodoVentas === 'semana' ? 'esta semana' : (mesOffsetVentas === 0 ? 'este mes' : fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }));
+
   const totalLabelEl = document.getElementById('ventas-total-label');
-  if (totalLabelEl) totalLabelEl.textContent = etiquetaTotal + ' (Doldi Chipa − Gastos)';
+  if (totalLabelEl) totalLabelEl.textContent = 'Total de ' + nombrePeriodo + ' (ventas − todos los gastos)';
 
   const gananciaLabelEl = document.getElementById('resumen-ganancia-label');
-  if (gananciaLabelEl) gananciaLabelEl.textContent = 'Ganancia de ' + (periodoVentas === 'dia' ? 'hoy' : periodoVentas === 'semana' ? 'esta semana' : (mesOffsetVentas === 0 ? 'este mes' : fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }))) + ' (ventas − insumos)';
+  if (gananciaLabelEl) gananciaLabelEl.textContent = 'Ganancia de ' + nombrePeriodo;
 
   // Navegador de mes: solo se ve con "Mes" elegido, y muestra qué mes estás mirando.
   const navLabelEl = document.getElementById('mes-navegador-label');
@@ -1625,9 +1640,7 @@ function renderHistorial() {
     wrap.innerHTML = '<div class="empty">Todavía no hay ventas registradas.</div>';
     return;
   }
-  const max = Math.max(...datos.map(d => Math.abs(d.total)), 1);
   wrap.innerHTML = datos.map(d => {
-    const pct = Math.max(3, Math.round((Math.abs(d.total) / max) * 100));
     const etiqueta = d.etiqueta.charAt(0).toUpperCase() + d.etiqueta.slice(1);
     const abierto = historialExpandido.has(d.clave);
     const claveEscapada = String(d.clave).replace(/'/g, "\\'");
@@ -1638,7 +1651,7 @@ function renderHistorial() {
         .filter(v => v.ts >= d.inicio && v.ts < d.fin)
         .sort((a, b) => b.ts - a.ts);
       if (ventasDelPeriodo.length === 0) {
-        detalleHtml = '<div class="empty" style="padding:10px 0 2px;">No hay ventas de Doldi Chipa en este período (el total puede incluir movimientos de Remis).</div>';
+        detalleHtml = '<div class="empty" style="padding:10px 0 2px;">No hay ventas de Doldi Chipa en este período (el total puede incluir movimientos de Gastos).</div>';
       } else {
         const subgrupos = agruparVentasPorPedido(ventasDelPeriodo);
         detalleHtml = renderFilasVentas(subgrupos, { mostrarFecha: periodoVentas !== 'dia' });
@@ -1650,7 +1663,6 @@ function renderHistorial() {
         <span class="historial-label">${abierto ? '▾' : '▸'} ${etiqueta}</span>
         <span class="historial-monto">${fmtMoney(d.total)}</span>
       </div>
-      <div class="historial-bar-track" onclick="toggleHistorialRow('${claveEscapada}')"><div class="historial-bar-fill" style="width:${pct}%;"></div></div>
       ${abierto ? `<div class="historial-detalle">${detalleHtml}</div>` : ''}
     </div>`;
   }).join('');
