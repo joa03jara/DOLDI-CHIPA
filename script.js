@@ -1540,11 +1540,16 @@ function renderResumen() {
   }
   if (navSiguienteEl) navSiguienteEl.style.opacity = (mesOffsetVentas === 0) ? '0.3' : '1';
 
-  // Total histórico: todo lo vendido de Doldi Chipa desde siempre, sin
-  // restar gastos ni nada de Remis. Es solo para consulta.
-  const totalHistorico = STATE.ventas.reduce((s, v) => s + v.monto, 0);
+  // Vendido en el mes completo (del 1 al último día), acompañando el mes
+  // que se esté mirando arriba (si estás en "Mes" y navegaste a agosto,
+  // esto muestra agosto entero; si no, muestra el mes calendario actual).
+  const rangoMes = claveYEtiquetaPeriodo(fechaReferenciaVentas(), 'mes');
+  const totalDelMes = STATE.ventas.filter(v => v.ts >= rangoMes.inicio && v.ts < rangoMes.fin).reduce((s, v) => s + v.monto, 0);
   const totalHistoricoEl = document.getElementById('ventas-total-historico');
-  if (totalHistoricoEl) totalHistoricoEl.textContent = fmtMoney(totalHistorico);
+  if (totalHistoricoEl) totalHistoricoEl.textContent = fmtMoney(totalDelMes);
+  const nombreMesTotal = new Date(rangoMes.inicio).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  const totalHistoricoLabelEl = document.getElementById('ventas-total-historico-label');
+  if (totalHistoricoLabelEl) totalHistoricoLabelEl.textContent = 'Vendido en ' + nombreMesTotal;
 
   renderHistorial();
 }
@@ -1636,24 +1641,6 @@ function agruparPorPeriodo(tipo) {
     };
     buckets[clave].total += v.monto;
   });
-  STATE.remis.forEach(m => {
-    const {
-      clave,
-      etiqueta,
-      orden,
-      inicio,
-      fin
-    } = claveYEtiquetaPeriodo(m.ts, tipo);
-    if (!buckets[clave]) buckets[clave] = {
-      clave,
-      etiqueta,
-      orden,
-      inicio,
-      fin,
-      total: 0
-    };
-    buckets[clave].total += (m.tipo === 'ingreso' ? m.monto : -m.monto);
-  });
   return Object.values(buckets).sort((a, b) => b.orden - a.orden);
 }
 
@@ -1676,7 +1663,7 @@ function renderHistorial() {
         .filter(v => v.ts >= d.inicio && v.ts < d.fin)
         .sort((a, b) => b.ts - a.ts);
       if (ventasDelPeriodo.length === 0) {
-        detalleHtml = '<div class="empty" style="padding:10px 0 2px;">No hay ventas de Doldi Chipa en este período (el total puede incluir movimientos de Gastos).</div>';
+        detalleHtml = '<div class="empty" style="padding:10px 0 2px;">No hay ventas registradas en este período.</div>';
       } else {
         const subgrupos = agruparVentasPorPedido(ventasDelPeriodo);
         detalleHtml = renderFilasVentas(subgrupos, { mostrarFecha: periodoVentas !== 'dia' });
