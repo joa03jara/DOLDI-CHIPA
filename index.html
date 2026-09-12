@@ -96,9 +96,29 @@
           <div class="stock-num" id="remis-gastos" style="color:var(--red);">$0</div>
         </div>
       </div>
-      <div class="card">
-        <h2>Movimientos</h2>
-        <div id="remis-list"></div>
+
+      <div class="section-title clickeable" style="margin-top:26px; font-size:18px;" id="remis-insumos-header" onclick="toggleRemisSeccion('insumos')">
+        <span>Historial de Producción</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+      </div>
+      <div class="card" id="remis-insumos-wrap" style="display:none;">
+        <div id="remis-list-insumos"></div>
+      </div>
+
+      <div class="section-title clickeable" style="margin-top:18px; font-size:18px;" id="remis-personal-header" onclick="toggleRemisSeccion('personal')">
+        <span>Historial Personal</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+      </div>
+      <div class="card" id="remis-personal-wrap" style="display:none;">
+        <div id="remis-list-personal"></div>
+      </div>
+
+      <div class="section-title clickeable" style="margin-top:18px; font-size:18px;" id="remis-viejo-header" onclick="toggleRemisSeccion('viejo')">
+        <span>Histórico (Remis)</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+      </div>
+      <div class="card" id="remis-viejo-wrap" style="display:none;">
+        <div id="remis-list-viejo"></div>
       </div>
     </section>
 
