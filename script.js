@@ -1327,41 +1327,97 @@ function renderRemis() {
   const esPersonal = m => m.categoria === 'personal';
   const esViejo = m => !m.categoria;
 
-  const totalInsumos = list.filter(esInsumos).reduce((s, m) => s + m.monto, 0);
-  const totalPersonal = list.filter(esPersonal).reduce((s, m) => s + m.monto, 0);
-  const totalViejo = list.filter(esViejo).reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
+  const listaInsumos = list.filter(esInsumos);
+  const listaPersonal = list.filter(esPersonal);
+  const listaViejo = list.filter(esViejo);
+
+  const totalInsumos = listaInsumos.reduce((s, m) => s + m.monto, 0);
+  const totalPersonal = listaPersonal.reduce((s, m) => s + m.monto, 0);
+  const totalViejo = listaViejo.reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
   const totalGastado = totalInsumos + totalPersonal + totalViejo;
 
   document.getElementById('remis-neto').textContent = fmtMoney(totalGastado);
   document.getElementById('remis-ingresos').textContent = fmtMoney(totalInsumos);
   document.getElementById('remis-gastos').textContent = fmtMoney(totalPersonal);
 
-  const wrap = document.getElementById('remis-list');
-  if (list.length === 0) {
-    wrap.innerHTML = '<div class="empty">Todavía no hay movimientos en este período.</div>';
+  const filaHoraTexto = m => {
+    const d = new Date(m.ts);
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const renderLista = (arr, opts) => {
+    if (arr.length === 0) return '<div class="empty">Todavía no hay movimientos acá.</div>';
+    return arr.map(m => {
+      const esIngresoViejo = m.tipo === 'ingreso';
+      const signo = esIngresoViejo ? '+' : '−';
+      const color = esIngresoViejo ? 'var(--green)' : 'var(--red)';
+      const label = m.concepto ? m.concepto : (esIngresoViejo ? 'Ingreso' : 'Gasto');
+      return `<div class="venta-item">
+        <div><div class="p">${label}</div><div class="t">${filaHoraTexto(m)}</div></div>
+        <div class="m" style="color:${color};">${signo} ${fmtMoney(m.monto)}</div>
+        <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick="eliminarRemisUI('${m.id}')">✕</button>
+      </div>`;
+    }).join('');
+  };
+
+  const renderListaViejo = arr => {
+    if (arr.length === 0) return '<div class="empty">Todavía no hay movimientos acá.</div>';
+    return arr.map(m => {
+      const esIngresoViejo = m.tipo === 'ingreso';
+      const signo = esIngresoViejo ? '+' : '−';
+      const color = esIngresoViejo ? 'var(--green)' : 'var(--red)';
+      const label = m.concepto ? m.concepto : (esIngresoViejo ? 'Ingreso' : 'Gasto');
+      // Los ingresos viejos (plata que entraba de los viajes de remis) no
+      // son ni insumos ni personal, así que no se pueden reclasificar; solo
+      // se pueden mover los que eran "gasto".
+      const botonesReclasificar = esIngresoViejo ? '' : `
+        <button class="btn btn-sm btn-rust" style="padding:5px 8px; font-size:11px; margin-left:6px;" onclick="reclasificarGastoViejo('${m.id}','insumos')">→ Producción</button>
+        <button class="btn btn-sm btn-gold" style="padding:5px 8px; font-size:11px; margin-left:4px;" onclick="reclasificarGastoViejo('${m.id}','personal')">→ Personal</button>`;
+      return `<div class="venta-item" style="flex-wrap:wrap;">
+        <div><div class="p">${label}</div><div class="t">${filaHoraTexto(m)}</div></div>
+        <div class="m" style="color:${color};">${signo} ${fmtMoney(m.monto)}</div>
+        <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick="eliminarRemisUI('${m.id}')">✕</button>
+        ${botonesReclasificar ? `<div style="width:100%; margin-top:6px; display:flex; justify-content:flex-end;">${botonesReclasificar}</div>` : ''}
+      </div>`;
+    }).join('');
+  };
+
+  document.getElementById('remis-list-insumos').innerHTML = renderLista(listaInsumos);
+  document.getElementById('remis-list-personal').innerHTML = renderLista(listaPersonal);
+  document.getElementById('remis-list-viejo').innerHTML = renderListaViejo(listaViejo);
+
+  // Si nunca trabajaste de remis (o ya no queda nada viejo cargado), no
+  // hace falta mostrar esa sección y ensuciar la pantalla.
+  const hayViejo = STATE.remis.some(esViejo);
+  document.getElementById('remis-viejo-header').style.display = hayViejo ? 'flex' : 'none';
+  document.getElementById('remis-viejo-wrap').style.display = hayViejo ? document.getElementById('remis-viejo-wrap').style.display : 'none';
+}
+
+function toggleRemisSeccion(cual) {
+  const wrap = document.getElementById('remis-' + cual + '-wrap');
+  const header = document.getElementById('remis-' + cual + '-header');
+  const abierto = wrap.style.display === 'block';
+  wrap.style.display = abierto ? 'none' : 'block';
+  header.classList.toggle('abierto', !abierto);
+}
+
+// Pasa un gasto viejo (de cuando esta sección era "Remis", sin categoría)
+// a Insumos o Personal, con un solo toque. No mueve plata de la Caja: ese
+// gasto ya estaba descontado desde el día que se cargó, esto solo cambia
+// en qué "cajón" se lo cuenta de ahora en más.
+async function reclasificarGastoViejo(id, categoria) {
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
     return;
   }
-  wrap.innerHTML = list.map(m => {
-    const d = new Date(m.ts);
-    const hora = d.toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit'
-    }) + ' ' + d.toLocaleTimeString('es-AR', {
-      hour: '2-digit',
-      minute: '2-digit'
+  try {
+    await db.collection('doldichipa_remis').doc(id).update({
+      categoria
     });
-    const esIngresoViejo = m.tipo === 'ingreso';
-    const emoji = esInsumos(m) || esPersonal(m) ? '' : (esIngresoViejo ? '🟢 ' : '🔴 ');
-    const etiquetaCategoria = esInsumos(m) ? ' (Producción)' : esPersonal(m) ? ' (Personal)' : ' (histórico Remis)';
-    const signo = esIngresoViejo ? '+' : '−';
-    const color = esIngresoViejo ? 'var(--green)' : 'var(--red)';
-    const label = (m.concepto ? m.concepto : (esIngresoViejo ? 'Ingreso' : 'Gasto')) + etiquetaCategoria;
-    return `<div class="venta-item">
-      <div><div class="p">${emoji}${label}</div><div class="t">${hora}</div></div>
-      <div class="m" style="color:${color};">${signo} ${fmtMoney(m.monto)}</div>
-      <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick="eliminarRemisUI('${m.id}')">✕</button>
-    </div>`;
-  }).join('');
+    showToast('Movido a ' + (categoria === 'insumos' ? 'Producción' : 'Personal'));
+  } catch (e) {
+    showToast('No se pudo mover, probá de nuevo');
+  }
 }
 
 function eliminarRemisUI(id) {
