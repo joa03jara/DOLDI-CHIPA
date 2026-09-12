@@ -1052,14 +1052,6 @@ function moverMesVentas(delta) {
 
 // Todo lo que no sea "la Ganancia" queda escondido atrás de este botón,
 // para que la pantalla de Ventas no abrume con números.
-function toggleDetalleVentas() {
-  const wrap = document.getElementById('detalle-ventas');
-  const btn = document.getElementById('btn-detalle-ventas');
-  const abierto = wrap.style.display === 'block';
-  wrap.style.display = abierto ? 'none' : 'block';
-  btn.classList.toggle('abierto', !abierto);
-}
-
 // "Evolución" arranca cerrada del todo (ni siquiera se ven los días) y se
 // despliega recién al tocarla.
 function toggleEvolucion() {
@@ -1544,9 +1536,6 @@ function renderResumen() {
   const totalInsumos = remisList.filter(m => m.categoria === 'insumos').reduce((s, m) => s + m.monto, 0);
   const totalPersonal = remisList.filter(m => m.categoria === 'personal').reduce((s, m) => s + m.monto, 0);
   const totalViejo = remisList.filter(m => !m.categoria).reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
-  const totalGastos = totalInsumos + totalPersonal + totalViejo;
-  const total = totalChipa - totalGastos;
-  document.getElementById('ventas-total').textContent = fmtMoney(total);
   document.getElementById('resumen-chipa').textContent = fmtMoney(totalChipa);
   document.getElementById('resumen-insumos-detalle').textContent = fmtMoney(totalInsumos);
   document.getElementById('resumen-personal-detalle').textContent = fmtMoney(totalPersonal + totalViejo);
@@ -1584,9 +1573,6 @@ function renderResumen() {
     if (filaInsumos) filaInsumos.style.display = 'flex';
   }
 
-  const totalLabelEl = document.getElementById('ventas-total-label');
-  if (totalLabelEl) totalLabelEl.textContent = 'Total neto';
-
   // Navegador de mes: solo se ve con "Mes" elegido, y muestra qué mes estás mirando.
   const navLabelEl = document.getElementById('mes-navegador-label');
   const navSiguienteEl = document.getElementById('mes-navegador-siguiente');
@@ -1595,17 +1581,6 @@ function renderResumen() {
     navLabelEl.textContent = nombreMesNav.charAt(0).toUpperCase() + nombreMesNav.slice(1);
   }
   if (navSiguienteEl) navSiguienteEl.style.opacity = (mesOffsetVentas === 0) ? '0.3' : '1';
-
-  // Vendido en el mes completo (del 1 al último día), acompañando el mes
-  // que se esté mirando arriba (si estás en "Mes" y navegaste a agosto,
-  // esto muestra agosto entero; si no, muestra el mes calendario actual).
-  const rangoMes = claveYEtiquetaPeriodo(fechaReferenciaVentas(), 'mes');
-  const totalDelMes = STATE.ventas.filter(v => v.ts >= rangoMes.inicio && v.ts < rangoMes.fin).reduce((s, v) => s + v.monto, 0);
-  const totalHistoricoEl = document.getElementById('ventas-total-historico');
-  if (totalHistoricoEl) totalHistoricoEl.textContent = fmtMoney(totalDelMes);
-  const nombreMesTotal = new Date(rangoMes.inicio).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-  const totalHistoricoLabelEl = document.getElementById('ventas-total-historico-label');
-  if (totalHistoricoLabelEl) totalHistoricoLabelEl.textContent = 'Vendido en ' + nombreMesTotal;
 
   renderHistorial();
 }
