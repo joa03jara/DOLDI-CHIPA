@@ -898,9 +898,6 @@ function renderStock() {
     </div>`;
   });
   wrap.innerHTML = html;
-
-  const totalVendidoReal = STATE.ventas.reduce((s, v) => s + v.monto, 0);
-  document.getElementById('total-vendido-real').textContent = fmtMoney(totalVendidoReal);
 }
 
 function renderPrecios() {
@@ -1018,6 +1015,14 @@ async function guardarPrecios() {
 
 let periodoVentas = 'dia';
 let mesOffsetVentas = 0; // 0 = mes actual, -1 = mes anterior, -2 = dos meses atrás, etc.
+let localidadFiltroVentas = 'todas'; // 'todas', 'Tartagal' o 'Mosconi'
+
+function cambiarLocalidadFiltro(valor) {
+  localidadFiltroVentas = valor;
+  document.querySelectorAll('#tab-ventas .segmented button[data-localidad]').forEach(b => b.classList.toggle('active', b.dataset.localidad === valor));
+  renderVentas();
+  renderResumen();
+}
 
 function cambiarPeriodoVentas(p) {
   periodoVentas = p;
@@ -1123,9 +1128,11 @@ function renderFilasVentas(subgrupos, opts) {
     const idsJson = JSON.stringify(sg.ids).replace(/"/g, '&quot;');
     const debeTag = sg.items[0].pagado === false ?
       `<button class="qty-pill" style="background:var(--red); color:#fff; border:none; margin-left:6px;" onclick='marcarVentaPagada(${idsJson}, ${sg.monto})' title="Tocá para marcar como pagado">Debe</button>` : '';
+    const localidadTag = sg.items[0].localidad ?
+      `<span class="qty-pill" style="background:var(--orange-soft); color:var(--orange-dark); margin-left:6px;">${sg.items[0].localidad}</span>` : '';
     return `<div class="venta-item">
       <div class="prod-icon" style="width:30px; height:30px; border-radius:8px;">${prodIconHtml(iconoProd,15)}</div>
-      <div style="flex:1;"><div class="p">${nombresTxt}${envioTxt}${debeTag}</div><div class="t">${clienteTxt}${fechaTxt}${hora}</div></div>
+      <div style="flex:1;"><div class="p">${nombresTxt}${envioTxt}${debeTag}${localidadTag}</div><div class="t">${clienteTxt}${fechaTxt}${hora}</div></div>
       <div class="m">${fmtMoney(sg.monto)}</div>
       <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick='eliminarGrupoVentaUI(${idsJson})'>✕</button>
     </div>`;
@@ -1136,7 +1143,7 @@ function renderVentas() {
   // El resumen "por producto" muestra el período actual elegido arriba
   // (Día = hoy, Semana = esta semana, Mes = este mes).
   const rangoActual = claveYEtiquetaPeriodo(fechaReferenciaVentas(), periodoVentas);
-  let list = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin);
+  let list = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin && (localidadFiltroVentas === 'todas' || v.localidad === localidadFiltroVentas));
   const resumen = document.getElementById('ventas-resumen');
   let resumenHtml = '';
   productosOrdenados().forEach(prod => {
@@ -1191,6 +1198,7 @@ function renderVentas() {
       v.qtyLabel || '',
       envioTxt,
       pedidoVinculado ? pedidoVinculado.cliente : '',
+      v.localidad || '',
       fecha1, fecha2,
       String(v.monto),
       fmtMoney(v.monto)
@@ -1368,7 +1376,7 @@ function renderRemis() {
       return `<div class="venta-item" style="flex-wrap:wrap;">
         <div><div class="p">${label}</div><div class="t">${filaHoraTexto(m)}</div></div>
         <div class="m" style="color:${color};">${signo} ${fmtMoney(m.monto)}</div>
-        <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick="eliminarRemisUI('${m.id}')">✕</button>
+        <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick="eliminarRemisSoloHistorialUI('${m.id}')">✕</button>
         ${botonesReclasificar ? `<div style="width:100%; margin-top:6px; display:flex; justify-content:flex-end;">${botonesReclasificar}</div>` : ''}
       </div>`;
     }).join('');
@@ -1376,13 +1384,6 @@ function renderRemis() {
 
   document.getElementById('remis-list-insumos').innerHTML = renderLista(listaInsumos);
   document.getElementById('remis-list-personal').innerHTML = renderLista(listaPersonal);
-  document.getElementById('remis-list-viejo').innerHTML = renderListaViejo(listaViejo);
-
-  // Si nunca trabajaste de remis (o ya no queda nada viejo cargado), no
-  // hace falta mostrar esa sección y ensuciar la pantalla.
-  const hayViejo = STATE.remis.some(esViejo);
-  document.getElementById('remis-viejo-header').style.display = hayViejo ? 'flex' : 'none';
-  document.getElementById('remis-viejo-wrap').style.display = hayViejo ? document.getElementById('remis-viejo-wrap').style.display : 'none';
 }
 
 function toggleRemisSeccion(cual) {
@@ -1443,6 +1444,34 @@ async function eliminarRemisConfirmado(id) {
   renderRemis();
   renderCaja();
   renderResumen();
+}
+
+// Solo para el "Histórico (Remis)": borra el registro viejo de la lista,
+// pero SIN tocar la Caja (esa plata ya estaba contada hace tiempo y no se
+// vuelve a mover). Sirve para limpiar la pantalla sin alterar el saldo.
+function eliminarRemisSoloHistorialUI(id) {
+  const mov = STATE.remis.find(m => m.id === id);
+  if (!mov) return;
+  const label = mov.concepto ? mov.concepto : (mov.tipo === 'ingreso' ? 'Ingreso' : 'Gasto');
+  confirmarAccion(
+    'Sacar del historial: ' + label,
+    'Esto solo lo saca de la lista. La Caja NO se modifica (esa plata ya estaba contada). No se puede deshacer.',
+    () => eliminarRemisSoloHistorialConfirmado(id)
+  );
+}
+
+async function eliminarRemisSoloHistorialConfirmado(id) {
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
+    return;
+  }
+  try {
+    await db.collection('doldichipa_remis').doc(id).delete();
+    showToast('Sacado del historial (la Caja no cambió)');
+  } catch (e) {
+    showToast('No se pudo sacar del historial');
+  }
+  renderRemis();
 }
 
 let remisMovCategoria = 'insumos'; // 'insumos' o 'personal' — ya no se registran ingresos acá
@@ -1526,7 +1555,7 @@ async function confirmarAjustarCaja() {
 
 function renderResumen() {
   const rangoActual = claveYEtiquetaPeriodo(fechaReferenciaVentas(), periodoVentas);
-  const ventasList = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin);
+  const ventasList = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin && (localidadFiltroVentas === 'todas' || v.localidad === localidadFiltroVentas));
   const totalChipa = ventasList.reduce((s, v) => s + v.monto, 0);
   const remisList = STATE.remis.filter(m => m.ts >= rangoActual.inicio && m.ts < rangoActual.fin);
   // Ya no se registran ingresos acá (dejaste de trabajar de remis). Los
@@ -1654,7 +1683,7 @@ function claveYEtiquetaPeriodo(ts, tipo) {
 
 function agruparPorPeriodo(tipo) {
   const buckets = {};
-  STATE.ventas.forEach(v => {
+  STATE.ventas.filter(v => localidadFiltroVentas === 'todas' || v.localidad === localidadFiltroVentas).forEach(v => {
     const {
       clave,
       etiqueta,
@@ -2091,6 +2120,29 @@ let envioSeleccionado; // undefined = todavía no se eligió | null = "Sin enví
 let carrito = []; // items que se van a vender ahora mismo (via "Vender ahora" o "Marcar listo")
 let pedidoItemsActual = []; // items del pedido de la libreta que se está armando
 let pedidoEnvioActual; // mismo criterio que envioSeleccionado
+let localidadPedidoActual = null; // 'Tartagal', 'Mosconi' o null (opcional)
+
+function elegirLocalidadPedido(valor) {
+  localidadPedidoActual = (localidadPedidoActual === valor) ? null : valor;
+  pintarLocalidadPedido();
+}
+
+function pintarLocalidadPedido() {
+  const btnTartagal = document.getElementById('ped-localidad-tartagal');
+  const btnMosconi = document.getElementById('ped-localidad-mosconi');
+  if (!btnTartagal || !btnMosconi) return;
+  btnTartagal.classList.remove('active');
+  btnMosconi.classList.remove('active');
+  btnTartagal.style.cssText = '';
+  btnMosconi.style.cssText = '';
+  if (localidadPedidoActual === 'Tartagal') {
+    btnTartagal.classList.add('active');
+    btnTartagal.style.cssText = 'background:var(--orange-dark); border-color:var(--orange-dark); color:#fff;';
+  } else if (localidadPedidoActual === 'Mosconi') {
+    btnMosconi.classList.add('active');
+    btnMosconi.style.cssText = 'background:var(--orange-dark); border-color:var(--orange-dark); color:#fff;';
+  }
+}
 let pedidoEditId = null; // si no es null, "guardar" actualiza este pedido en vez de crear uno nuevo
 let pedidoOrigenId = null; // si la venta que se está confirmando viene de un pedido pendiente, su id
 let pedidoClienteVentaAhora = ''; // nombre del cliente para el registro de "Completados hoy"
@@ -2150,12 +2202,15 @@ function abrirPedidoForm(editId) {
     pedidoItemsActual = (pedido.items || []).map(i => ({ ...i
     }));
     pedidoEnvioActual = pedido.envio;
+    localidadPedidoActual = pedido.localidad || null;
   } else {
     document.getElementById('ped-cliente').value = '';
     document.getElementById('ped-direccion').value = '';
     pedidoItemsActual = [];
     pedidoEnvioActual = undefined;
+    localidadPedidoActual = null;
   }
+  pintarLocalidadPedido();
   renderPedidoItems();
   renderPedidoEnvioOpts();
   actualizarVisibilidadDireccion();
@@ -2273,7 +2328,8 @@ async function guardarPedido() {
         cliente,
         items: pedidoItemsActual,
         envio: pedidoEnvioActual,
-        direccion
+        direccion,
+        localidad: localidadPedidoActual || null
       });
       showToast('Pedido actualizado');
     } else {
@@ -2282,6 +2338,7 @@ async function guardarPedido() {
         items: pedidoItemsActual,
         envio: pedidoEnvioActual,
         direccion,
+        localidad: localidadPedidoActual || null,
         estado: 'pendiente',
         creadoTs: Date.now()
       });
@@ -2336,12 +2393,14 @@ function renderPedidos() {
       const esPrimero = idx === 0;
       const href = ubicacionHref(p.direccion);
       const embedSrc = ubicacionEmbedSrc(p.direccion);
+      const tagLocalidad = p.localidad ? `<span style="background:var(--orange-soft); color:var(--orange-dark); font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; margin-left:6px;">${p.localidad}</span>` : '';
       return `<div class="pedido-card ${esPrimero?'primero':''}">
         <div class="pedido-card-top">
           <div class="pedido-card-info">
             <div class="pedido-card-badges">
               ${esPrimero ? '<span style="background:var(--orange); color:#2a1a08; font-size:11px; font-weight:800; padding:2px 8px; border-radius:20px;">SIGUE ESTE</span>' : `<span class="muted" style="font-size:12px; font-weight:700;">#${idx+1}</span>`}
               <div class="prod-name">${p.cliente}</div>
+              ${tagLocalidad}
             </div>
             <div class="unit-tag" style="white-space:normal;">${resumenItemsPedido(p.items)}${p.envio ? ' + envío ' + p.envio : ''}</div>
             <div class="stock-num" style="margin-top:6px; font-size:16px;">${fmtMoney(subtotal)}</div>
@@ -2369,7 +2428,7 @@ function renderPedidos() {
   } else {
     wrapListos.innerHTML = listosHoy.map(p => `
       <div class="venta-item">
-        <div style="flex:1;"><div class="p">${p.cliente}</div><div class="t">${resumenItemsPedido(p.items)}</div></div>
+        <div style="flex:1;"><div class="p">${p.cliente}${p.localidad ? ` <span style="background:var(--orange-soft); color:var(--orange-dark); font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px;">${p.localidad}</span>` : ''}</div><div class="t">${resumenItemsPedido(p.items)}</div></div>
       </div>
     `).join('');
   }
@@ -2387,6 +2446,10 @@ function marcarListoDesdePedido(id) {
   // El envío ya se eligió cuando se anotó el pedido — acá no se vuelve a pedir.
   envioSeleccionado = (typeof pedido.envio === 'undefined') ? null : pedido.envio;
   abrirFinalizarPedido();
+  // Si el pedido ya tenía localidad cargada (de cuando se anotó en espera),
+  // se respeta acá también en vez de pedirla de nuevo.
+  localidadVentaActual = pedido.localidad || null;
+  pintarLocalidadVenta();
 }
 
 function eliminarPedidoUI(id) {
@@ -2431,6 +2494,11 @@ function abrirFinalizarPedido() {
   document.getElementById('pago-venta-pagado').style.cssText = '';
   document.getElementById('pago-venta-debe').style.cssText = '';
   document.getElementById('btn-confirmar-pedido').disabled = true;
+  localidadVentaActual = null;
+  document.getElementById('localidad-venta-tartagal').classList.remove('active');
+  document.getElementById('localidad-venta-mosconi').classList.remove('active');
+  document.getElementById('localidad-venta-tartagal').style.cssText = '';
+  document.getElementById('localidad-venta-mosconi').style.cssText = '';
   mostrarOverlay('overlay-confirm');
 }
 
@@ -2473,6 +2541,30 @@ function elegirPagoVenta(valor) {
   }
   const btnConfirmar = document.getElementById('btn-confirmar-pedido');
   if (btnConfirmar) btnConfirmar.disabled = false;
+}
+
+let localidadVentaActual = null; // 'Tartagal', 'Mosconi' o null (es opcional)
+
+function elegirLocalidadVenta(valor) {
+  // Tocar la misma otra vez la deselecciona (es opcional, puede quedar sin elegir).
+  localidadVentaActual = (localidadVentaActual === valor) ? null : valor;
+  pintarLocalidadVenta();
+}
+
+function pintarLocalidadVenta() {
+  const btnTartagal = document.getElementById('localidad-venta-tartagal');
+  const btnMosconi = document.getElementById('localidad-venta-mosconi');
+  btnTartagal.classList.remove('active');
+  btnMosconi.classList.remove('active');
+  btnTartagal.style.cssText = '';
+  btnMosconi.style.cssText = '';
+  if (localidadVentaActual === 'Tartagal') {
+    btnTartagal.classList.add('active');
+    btnTartagal.style.cssText = 'background:var(--orange-dark); border-color:var(--orange-dark); color:#fff;';
+  } else if (localidadVentaActual === 'Mosconi') {
+    btnMosconi.classList.add('active');
+    btnMosconi.style.cssText = 'background:var(--orange-dark); border-color:var(--orange-dark); color:#fff;';
+  }
 }
 
 async function confirmarVenta() {
@@ -2574,7 +2666,8 @@ async function confirmarVentaInterno() {
       envio: esUltimo ? envioSeleccionado : null,
       pedidoId: pedidoOrigenId,
       pagado: pagadoVenta,
-      clienteNombre: clienteNombreVenta || null
+      clienteNombre: clienteNombreVenta || null,
+      localidad: localidadVentaActual || null
     });
   });
 
@@ -2623,7 +2716,8 @@ async function confirmarVentaInterno() {
     items,
     envio: envioSeleccionado,
     estado: 'listo',
-    listoTs: tsElegido
+    listoTs: tsElegido,
+    localidad: localidadVentaActual || null
   };
   if (db) {
     if (pedidoOrigenId) {
