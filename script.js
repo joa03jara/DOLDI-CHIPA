@@ -2120,37 +2120,13 @@ let envioSeleccionado; // undefined = todavía no se eligió | null = "Sin enví
 let carrito = []; // items que se van a vender ahora mismo (via "Vender ahora" o "Marcar listo")
 let pedidoItemsActual = []; // items del pedido de la libreta que se está armando
 let pedidoEnvioActual; // mismo criterio que envioSeleccionado
-let localidadPedidoActual = null; // 'Tartagal', 'Mosconi' o null (ahora es obligatorio elegir uno)
-let pagoPedidoActual = null; // 'pagado' o 'debe' — obligatorio elegir uno
+let localidadPedidoActual = null; // 'Tartagal', 'Mosconi' o null (obligatorio elegir uno)
 
-function elegirPagoPedido(valor) {
-  pagoPedidoActual = valor;
-  pintarPagoPedido();
-  actualizarBotonGuardarPedido();
-}
-
-function pintarPagoPedido() {
-  const btnPagado = document.getElementById('ped-pago-pagado');
-  const btnDebe = document.getElementById('ped-pago-debe');
-  btnPagado.classList.remove('active');
-  btnDebe.classList.remove('active');
-  btnPagado.style.cssText = '';
-  btnDebe.style.cssText = '';
-  if (pagoPedidoActual === 'pagado') {
-    btnPagado.classList.add('active');
-    btnPagado.style.cssText = 'background:var(--green); border-color:var(--green); color:#fff;';
-  } else if (pagoPedidoActual === 'debe') {
-    btnDebe.classList.add('active');
-    btnDebe.style.cssText = 'background:var(--red); border-color:var(--red); color:#fff;';
-  }
-}
-
-// El botón "Guardar pedido" se habilita recién cuando ya se eligió tanto
-// Pagado/Debe como la localidad — ninguno de los dos puede quedar sin elegir.
+// El botón "Guardar pedido" se habilita recién cuando ya se eligió la localidad.
 function actualizarBotonGuardarPedido() {
   const btn = document.getElementById('ped-guardar-btn');
   if (!btn) return;
-  btn.disabled = !(pagoPedidoActual && localidadPedidoActual);
+  btn.disabled = !localidadPedidoActual;
 }
 
 function elegirLocalidadPedido(valor) {
@@ -2235,17 +2211,14 @@ function abrirPedidoForm(editId) {
     }));
     pedidoEnvioActual = pedido.envio;
     localidadPedidoActual = pedido.localidad || null;
-    pagoPedidoActual = (typeof pedido.pagado === 'undefined') ? null : (pedido.pagado ? 'pagado' : 'debe');
   } else {
     document.getElementById('ped-cliente').value = '';
     document.getElementById('ped-direccion').value = '';
     pedidoItemsActual = [];
     pedidoEnvioActual = undefined;
     localidadPedidoActual = null;
-    pagoPedidoActual = null;
   }
   pintarLocalidadPedido();
-  pintarPagoPedido();
   actualizarBotonGuardarPedido();
   renderPedidoItems();
   renderPedidoEnvioOpts();
@@ -2351,8 +2324,8 @@ let guardandoPedido = false; // evita que tocar "Guardar pedido" varias veces se
 async function guardarPedido() {
   if (guardandoPedido) return;
   if (!validarPedidoForm()) return;
-  if (!pagoPedidoActual || !localidadPedidoActual) {
-    showToast('Elegí si está Pagado/Debe y la Localidad');
+  if (!localidadPedidoActual) {
+    showToast('Elegí la localidad');
     return;
   }
   if (!db) {
@@ -2369,8 +2342,7 @@ async function guardarPedido() {
         items: pedidoItemsActual,
         envio: pedidoEnvioActual,
         direccion,
-        localidad: localidadPedidoActual || null,
-        pagado: pagoPedidoActual === 'pagado'
+        localidad: localidadPedidoActual || null
       });
       showToast('Pedido actualizado');
     } else {
@@ -2380,7 +2352,6 @@ async function guardarPedido() {
         envio: pedidoEnvioActual,
         direccion,
         localidad: localidadPedidoActual || null,
-        pagado: pagoPedidoActual === 'pagado',
         estado: 'pendiente',
         creadoTs: Date.now()
       });
@@ -2489,21 +2460,12 @@ function marcarListoDesdePedido(id) {
   envioSeleccionado = (typeof pedido.envio === 'undefined') ? null : pedido.envio;
   abrirFinalizarPedido();
 
-  // Si el pedido ya tenía Localidad y Pagado/Debe cargados (de cuando se
-  // anotó en "Nuevo pedido"), se respetan acá sin volver a preguntar —
-  // por eso esos pedidos siempre los cargan ahí. Solo si por algún motivo
-  // faltara alguno (pedidos viejos de antes de este cambio), se vuelve a
-  // mostrar esa pregunta puntual acá.
+  // Si el pedido ya tenía Localidad cargada (de cuando se anotó en "Nuevo
+  // pedido"), se respeta acá sin volver a preguntar. El "¿Ya te pagó?" en
+  // cambio siempre se pregunta acá, nunca en "Nuevo pedido".
   localidadVentaActual = pedido.localidad || null;
   pintarLocalidadVenta();
   document.getElementById('bloque-localidad-venta').style.display = pedido.localidad ? 'none' : 'block';
-
-  if (typeof pedido.pagado !== 'undefined') {
-    pagoVentaActual = pedido.pagado ? 'pagado' : 'debe';
-    pintarPagoVenta();
-    document.getElementById('bloque-pago-venta').style.display = 'none';
-    document.getElementById('btn-confirmar-pedido').disabled = false;
-  }
 }
 
 function eliminarPedidoUI(id) {
