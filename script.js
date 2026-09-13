@@ -2120,11 +2120,43 @@ let envioSeleccionado; // undefined = todavía no se eligió | null = "Sin enví
 let carrito = []; // items que se van a vender ahora mismo (via "Vender ahora" o "Marcar listo")
 let pedidoItemsActual = []; // items del pedido de la libreta que se está armando
 let pedidoEnvioActual; // mismo criterio que envioSeleccionado
-let localidadPedidoActual = null; // 'Tartagal', 'Mosconi' o null (opcional)
+let localidadPedidoActual = null; // 'Tartagal', 'Mosconi' o null (ahora es obligatorio elegir uno)
+let pagoPedidoActual = null; // 'pagado' o 'debe' — obligatorio elegir uno
+
+function elegirPagoPedido(valor) {
+  pagoPedidoActual = valor;
+  pintarPagoPedido();
+  actualizarBotonGuardarPedido();
+}
+
+function pintarPagoPedido() {
+  const btnPagado = document.getElementById('ped-pago-pagado');
+  const btnDebe = document.getElementById('ped-pago-debe');
+  btnPagado.classList.remove('active');
+  btnDebe.classList.remove('active');
+  btnPagado.style.cssText = '';
+  btnDebe.style.cssText = '';
+  if (pagoPedidoActual === 'pagado') {
+    btnPagado.classList.add('active');
+    btnPagado.style.cssText = 'background:var(--green); border-color:var(--green); color:#fff;';
+  } else if (pagoPedidoActual === 'debe') {
+    btnDebe.classList.add('active');
+    btnDebe.style.cssText = 'background:var(--red); border-color:var(--red); color:#fff;';
+  }
+}
+
+// El botón "Guardar pedido" se habilita recién cuando ya se eligió tanto
+// Pagado/Debe como la localidad — ninguno de los dos puede quedar sin elegir.
+function actualizarBotonGuardarPedido() {
+  const btn = document.getElementById('ped-guardar-btn');
+  if (!btn) return;
+  btn.disabled = !(pagoPedidoActual && localidadPedidoActual);
+}
 
 function elegirLocalidadPedido(valor) {
-  localidadPedidoActual = (localidadPedidoActual === valor) ? null : valor;
+  localidadPedidoActual = valor;
   pintarLocalidadPedido();
+  actualizarBotonGuardarPedido();
 }
 
 function pintarLocalidadPedido() {
@@ -2203,14 +2235,18 @@ function abrirPedidoForm(editId) {
     }));
     pedidoEnvioActual = pedido.envio;
     localidadPedidoActual = pedido.localidad || null;
+    pagoPedidoActual = (typeof pedido.pagado === 'undefined') ? null : (pedido.pagado ? 'pagado' : 'debe');
   } else {
     document.getElementById('ped-cliente').value = '';
     document.getElementById('ped-direccion').value = '';
     pedidoItemsActual = [];
     pedidoEnvioActual = undefined;
     localidadPedidoActual = null;
+    pagoPedidoActual = null;
   }
   pintarLocalidadPedido();
+  pintarPagoPedido();
+  actualizarBotonGuardarPedido();
   renderPedidoItems();
   renderPedidoEnvioOpts();
   actualizarVisibilidadDireccion();
@@ -2315,6 +2351,10 @@ let guardandoPedido = false; // evita que tocar "Guardar pedido" varias veces se
 async function guardarPedido() {
   if (guardandoPedido) return;
   if (!validarPedidoForm()) return;
+  if (!pagoPedidoActual || !localidadPedidoActual) {
+    showToast('Elegí si está Pagado/Debe y la Localidad');
+    return;
+  }
   if (!db) {
     showToast('No está conectado a la nube (menú → Configuración)');
     return;
@@ -2329,7 +2369,8 @@ async function guardarPedido() {
         items: pedidoItemsActual,
         envio: pedidoEnvioActual,
         direccion,
-        localidad: localidadPedidoActual || null
+        localidad: localidadPedidoActual || null,
+        pagado: pagoPedidoActual === 'pagado'
       });
       showToast('Pedido actualizado');
     } else {
@@ -2339,6 +2380,7 @@ async function guardarPedido() {
         envio: pedidoEnvioActual,
         direccion,
         localidad: localidadPedidoActual || null,
+        pagado: pagoPedidoActual === 'pagado',
         estado: 'pendiente',
         creadoTs: Date.now()
       });
@@ -2446,10 +2488,22 @@ function marcarListoDesdePedido(id) {
   // El envío ya se eligió cuando se anotó el pedido — acá no se vuelve a pedir.
   envioSeleccionado = (typeof pedido.envio === 'undefined') ? null : pedido.envio;
   abrirFinalizarPedido();
-  // Si el pedido ya tenía localidad cargada (de cuando se anotó en espera),
-  // se respeta acá también en vez de pedirla de nuevo.
+
+  // Si el pedido ya tenía Localidad y Pagado/Debe cargados (de cuando se
+  // anotó en "Nuevo pedido"), se respetan acá sin volver a preguntar —
+  // por eso esos pedidos siempre los cargan ahí. Solo si por algún motivo
+  // faltara alguno (pedidos viejos de antes de este cambio), se vuelve a
+  // mostrar esa pregunta puntual acá.
   localidadVentaActual = pedido.localidad || null;
   pintarLocalidadVenta();
+  document.getElementById('bloque-localidad-venta').style.display = pedido.localidad ? 'none' : 'block';
+
+  if (typeof pedido.pagado !== 'undefined') {
+    pagoVentaActual = pedido.pagado ? 'pagado' : 'debe';
+    pintarPagoVenta();
+    document.getElementById('bloque-pago-venta').style.display = 'none';
+    document.getElementById('btn-confirmar-pedido').disabled = false;
+  }
 }
 
 function eliminarPedidoUI(id) {
@@ -2499,6 +2553,11 @@ function abrirFinalizarPedido() {
   document.getElementById('localidad-venta-mosconi').classList.remove('active');
   document.getElementById('localidad-venta-tartagal').style.cssText = '';
   document.getElementById('localidad-venta-mosconi').style.cssText = '';
+  // Por defecto se muestran las dos preguntas (caso "Vender ahora" directo).
+  // Si viene de un pedido que ya las tenía cargadas, marcarListoDesdePedido
+  // las esconde después de esto.
+  document.getElementById('bloque-pago-venta').style.display = 'block';
+  document.getElementById('bloque-localidad-venta').style.display = 'block';
   mostrarOverlay('overlay-confirm');
 }
 
@@ -2524,6 +2583,12 @@ let pagoVentaActual = null; // 'pagado' o 'debe' — null hasta que el usuario e
 
 function elegirPagoVenta(valor) {
   pagoVentaActual = valor;
+  pintarPagoVenta();
+  const btnConfirmar = document.getElementById('btn-confirmar-pedido');
+  if (btnConfirmar) btnConfirmar.disabled = false;
+}
+
+function pintarPagoVenta() {
   const btnPagado = document.getElementById('pago-venta-pagado');
   const btnDebe = document.getElementById('pago-venta-debe');
   // Se resetean los dos y después se pinta solo el elegido, para que nunca
@@ -2532,15 +2597,13 @@ function elegirPagoVenta(valor) {
   btnDebe.classList.remove('active');
   btnPagado.style.cssText = '';
   btnDebe.style.cssText = '';
-  if (valor === 'pagado') {
+  if (pagoVentaActual === 'pagado') {
     btnPagado.classList.add('active');
     btnPagado.style.cssText = 'background:var(--green); border-color:var(--green); color:#fff;';
-  } else {
+  } else if (pagoVentaActual === 'debe') {
     btnDebe.classList.add('active');
     btnDebe.style.cssText = 'background:var(--red); border-color:var(--red); color:#fff;';
   }
-  const btnConfirmar = document.getElementById('btn-confirmar-pedido');
-  if (btnConfirmar) btnConfirmar.disabled = false;
 }
 
 let localidadVentaActual = null; // 'Tartagal', 'Mosconi' o null (es opcional)

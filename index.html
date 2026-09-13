@@ -478,16 +478,20 @@
         <input type="datetime-local" id="venta-fecha-hora" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--bg); color:var(--text);">
       </div>
 
-      <p class="muted" style="margin:16px 0 6px; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.3px;">¿Ya te pagó?</p>
-      <div class="grid2" style="margin-bottom:4px;">
-        <div class="qty-btn" id="pago-venta-pagado" onclick="elegirPagoVenta('pagado')">Pagado</div>
-        <div class="qty-btn" id="pago-venta-debe" onclick="elegirPagoVenta('debe')">Debe</div>
+      <div id="bloque-pago-venta">
+        <p class="muted" style="margin:16px 0 6px; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.3px;">¿Ya te pagó?</p>
+        <div class="grid2" style="margin-bottom:4px;">
+          <div class="qty-btn" id="pago-venta-pagado" onclick="elegirPagoVenta('pagado')">Pagado</div>
+          <div class="qty-btn" id="pago-venta-debe" onclick="elegirPagoVenta('debe')">Debe</div>
+        </div>
       </div>
 
-      <p class="muted" style="margin:16px 0 6px; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.3px;">¿Para qué localidad es? (opcional)</p>
-      <div class="grid2" style="margin-bottom:4px;">
-        <div class="qty-btn" id="localidad-venta-tartagal" onclick="elegirLocalidadVenta('Tartagal')">Tartagal</div>
-        <div class="qty-btn" id="localidad-venta-mosconi" onclick="elegirLocalidadVenta('Mosconi')">Mosconi</div>
+      <div id="bloque-localidad-venta">
+        <p class="muted" style="margin:16px 0 6px; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.3px;">¿Para qué localidad es?</p>
+        <div class="grid2" style="margin-bottom:4px;">
+          <div class="qty-btn" id="localidad-venta-tartagal" onclick="elegirLocalidadVenta('Tartagal')">Tartagal</div>
+          <div class="qty-btn" id="localidad-venta-mosconi" onclick="elegirLocalidadVenta('Mosconi')">Mosconi</div>
+        </div>
       </div>
 
       <button class="btn btn-green btn-block" style="margin-top:10px;" id="btn-confirmar-pedido" onclick="confirmarVenta()" disabled>Confirmar pedido</button>
@@ -636,7 +640,12 @@
         <label>Ubicación (opcional)</label>
         <textarea id="ped-direccion" rows="2" placeholder="Pegá acá el link de ubicación que te mandaron por WhatsApp o Instagram" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--bg); color:var(--text); font-family:inherit; resize:vertical;"></textarea>
       </div>
-      <p class="muted" style="margin:14px 0 6px; font-weight:600;">Localidad (opcional)</p>
+      <p class="muted" style="margin:14px 0 6px; font-weight:600;">¿Ya te pagó?</p>
+      <div class="grid2" style="margin-bottom:14px;">
+        <div class="qty-btn" id="ped-pago-pagado" onclick="elegirPagoPedido('pagado')">Pagado</div>
+        <div class="qty-btn" id="ped-pago-debe" onclick="elegirPagoPedido('debe')">Debe</div>
+      </div>
+      <p class="muted" style="margin:14px 0 6px; font-weight:600;">Localidad</p>
       <div class="grid2" style="margin-bottom:14px;">
         <div class="qty-btn" id="ped-localidad-tartagal" onclick="elegirLocalidadPedido('Tartagal')">Tartagal</div>
         <div class="qty-btn" id="ped-localidad-mosconi" onclick="elegirLocalidadPedido('Mosconi')">Mosconi</div>
@@ -645,7 +654,7 @@
         <div class="prod-name" style="flex:1; font-weight:800;">Total</div>
         <div class="stock-num" id="ped-total" style="color:var(--orange-dark);">$0</div>
       </div>
-      <button class="btn btn-green btn-block" id="ped-guardar-btn" style="margin-top:14px;" onclick="guardarPedido()">Guardar pedido</button>
+      <button class="btn btn-green btn-block" id="ped-guardar-btn" style="margin-top:14px;" onclick="guardarPedido()" disabled>Guardar pedido</button>
     </div>
   </div>
 
