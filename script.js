@@ -199,6 +199,7 @@ function attachListeners() {
     renderStock();
     renderResumen();
     renderDebe();
+    renderGraficos();
   }, () => {
     showToast('No se pudo leer el historial de ventas');
   });
@@ -645,6 +646,7 @@ function irATab(name) {
     renderResumen();
   } else if (name === 'remis') renderRemis();
   else if (name === 'debe') renderDebe();
+  else if (name === 'graficos') renderGraficos();
   else if (name === 'vender') renderVender();
   else if (name === 'clientes') {
     renderPremios();
@@ -1614,7 +1616,84 @@ function renderResumen() {
   renderHistorial();
 }
 
-/* ================= HISTORIAL (acordeón de Evolución) ================= */
+/* ================= GRÁFICOS (ranking de meses) ================= */
+let graficosExpandido = new Set();
+
+function toggleGraficoMes(clave) {
+  if (graficosExpandido.has(clave)) graficosExpandido.delete(clave);
+  else graficosExpandido.add(clave);
+  renderGraficos();
+}
+
+function renderGraficos() {
+  const wrap = document.getElementById('graficos-ranking-meses');
+  if (!wrap) return;
+  if (STATE.ventas.length === 0) {
+    wrap.innerHTML = '<div class="empty">Todavía no hay ventas registradas.</div>';
+    return;
+  }
+
+  // Se agrupa por mes calendario y se ordena por PLATA (no por fecha), para
+  // que el ranking muestre primero el mes que más vendiste.
+  const buckets = {};
+  STATE.ventas.forEach(v => {
+    const {
+      clave,
+      etiqueta,
+      inicio,
+      fin
+    } = claveYEtiquetaPeriodo(v.ts, 'mes');
+    if (!buckets[clave]) buckets[clave] = {
+      clave,
+      etiqueta,
+      inicio,
+      fin,
+      total: 0
+    };
+    buckets[clave].total += v.monto;
+  });
+  const meses = Object.values(buckets).sort((a, b) => b.total - a.total);
+  const max = meses[0].total || 1;
+
+  wrap.innerHTML = meses.map((m, idx) => {
+    const pct = Math.max(3, Math.round((m.total / max) * 100));
+    const nombreMes = m.etiqueta.charAt(0).toUpperCase() + m.etiqueta.slice(1);
+    const abierto = graficosExpandido.has(m.clave);
+    const claveEscapada = String(m.clave).replace(/'/g, "\\'");
+
+    let detalleHtml = '';
+    if (abierto) {
+      const diasBuckets = {};
+      STATE.ventas.filter(v => v.ts >= m.inicio && v.ts < m.fin).forEach(v => {
+        const d = claveYEtiquetaPeriodo(v.ts, 'dia');
+        if (!diasBuckets[d.clave]) diasBuckets[d.clave] = {
+          etiqueta: d.etiqueta,
+          total: 0
+        };
+        diasBuckets[d.clave].total += v.monto;
+      });
+      const dias = Object.values(diasBuckets).sort((a, b) => b.total - a.total);
+      if (dias.length === 0) {
+        detalleHtml = '<div class="empty" style="padding:10px 0 2px;">Sin ventas este mes.</div>';
+      } else {
+        const mejor = dias[0];
+        const nombreDia = mejor.etiqueta.charAt(0).toUpperCase() + mejor.etiqueta.slice(1);
+        detalleHtml = `<div class="venta-item"><div class="p">🏆 Mejor día: ${nombreDia}</div><div class="m">${fmtMoney(mejor.total)}</div></div>`;
+      }
+    }
+
+    return `<div class="historial-row">
+      <div class="historial-top" onclick="toggleGraficoMes('${claveEscapada}')">
+        <span class="historial-label">${idx+1}. ${abierto ? '▾' : '▸'} ${nombreMes}</span>
+        <span class="historial-monto">${fmtMoney(m.total)}</span>
+      </div>
+      <div class="historial-bar-track" onclick="toggleGraficoMes('${claveEscapada}')"><div class="historial-bar-fill" style="width:${pct}%;"></div></div>
+      ${abierto ? `<div class="historial-detalle">${detalleHtml}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+
 // Claves de los "baldes" (día/semana/mes) que el usuario tocó para
 // desplegar el detalle de ventas de ese período, tipo acordeón.
 let historialExpandido = new Set();
@@ -2395,7 +2474,41 @@ function ubicacionEmbedSrc(direccion) {
   return 'https://maps.google.com/maps?q=' + encodeURIComponent(query) + '&z=15&output=embed';
 }
 
+// Suma, producto por producto, todo lo que hace falta producir sumando
+// TODOS los pedidos en espera juntos — así de un vistazo sabés cuánto
+// tenés que hacer antes de largarte a cocinar, sin sumar a mano.
+function renderResumenProduccion() {
+  const card = document.getElementById('resumen-produccion-card');
+  const wrap = document.getElementById('resumen-produccion-lista');
+  if (!card || !wrap) return;
+
+  const pendientes = STATE.pedidos.filter(p => p.estado === 'pendiente');
+  const sumaPorProducto = {};
+  pendientes.forEach(p => {
+    (p.items || []).forEach(item => {
+      sumaPorProducto[item.prod] = (sumaPorProducto[item.prod] || 0) + (item.qty || 0);
+    });
+  });
+
+  const productosConCantidad = productosOrdenados().filter(prod => sumaPorProducto[prod] > 0);
+
+  if (productosConCantidad.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  wrap.innerHTML = productosConCantidad.map(prod => {
+    const p = STATE.productos[prod];
+    return `<div class="prod-row">
+      <div class="prod-icon">${prodIconHtml(prod)}</div>
+      <div class="prod-name" style="flex:1;">${p.label}</div>
+      <span class="qty-pill">${fmtCantidad(prod, sumaPorProducto[prod])}</span>
+    </div>`;
+  }).join('');
+}
+
 function renderPedidos() {
+  renderResumenProduccion();
   const pendientes = STATE.pedidos.filter(p => p.estado === 'pendiente').sort((a, b) => a.creadoTs - b.creadoTs);
   const wrap = document.getElementById('pedidos-lista');
   if (pendientes.length === 0) {

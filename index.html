@@ -52,6 +52,10 @@
       <div class="section-title">Pedidos</div>
       <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Anotá el pedido y elegí si lo vendés ahora mismo o si lo dejás en espera para armarlo después.</p>
       <button class="btn btn-gold btn-block" onclick="abrirPedidoForm()">+ Nuevo pedido</button>
+      <div class="card" id="resumen-produccion-card" style="margin-top:14px; display:none;">
+        <h2>Para producir (pedidos en espera)</h2>
+        <div id="resumen-produccion-lista"></div>
+      </div>
       <div class="card" style="margin-top:14px;">
         <h2>En espera</h2>
         <div id="pedidos-lista"></div>
@@ -256,6 +260,13 @@
       <div class="card" id="debe-lista"></div>
     </section>
 
+    <!-- GRÁFICOS -->
+    <section class="tab-panel" id="tab-graficos">
+      <div class="section-title">Gráficos</div>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Ranking de todos los meses, del que más vendiste al que menos. Tocá un mes para ver su mejor día.</p>
+      <div class="card" id="graficos-ranking-meses"></div>
+    </section>
+
     <!-- CLIENTES Y PUNTOS -->
     <section class="tab-panel" id="tab-clientes">
       <div class="section-title">Clientes y puntos</div>
@@ -422,6 +433,12 @@
       </svg>
       Debe
       <span id="debe-badge" style="display:none; margin-left:auto; background:var(--red); color:#fff; font-size:11px; font-weight:800; border-radius:10px; padding:1px 7px;">0</span>
+    </button>
+    <button class="drawer-item" data-tab="graficos" onclick="irATab('graficos')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 20V10M11 20V4M18 20v-7" />
+      </svg>
+      Gráficos
     </button>
     <button class="drawer-item" data-tab="clientes" onclick="irATab('clientes')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
