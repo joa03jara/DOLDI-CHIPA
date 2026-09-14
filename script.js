@@ -276,7 +276,7 @@ function conectarFirebase() {
   }
   localStorage.setItem('doldi_fb_config', JSON.stringify(cfg));
   initFirebase(cfg);
-  showToast('Conectado a la nube');
+  showToastExito('Conectado a la nube');
   irATab('stock');
 }
 
@@ -301,7 +301,7 @@ function elegirQuienSoy(nombre) {
   localStorage.setItem('doldi_quien_soy', nombre);
   renderQuienSoyOpts();
   aplicarQuienSoyGuardado();
-  showToast('Listo, quedaste como ' + nombre);
+  showToastExito('Listo, quedaste como ' + nombre);
 }
 
 // Le avisa a OneSignal quién es esta persona (para poder mandarle avisos
@@ -477,15 +477,15 @@ async function guardarConfigPuntos() {
     showToast('No está conectado a la nube (menú → Configuración)');
     return;
   }
+  showToastExito('Configuración guardada');
   try {
     await db.collection('doldichipa').doc('puntosConfig').set({
       porMil: val
     }, {
       merge: true
     });
-    showToast('Configuración guardada');
   } catch (e) {
-    showToast('No se pudo guardar');
+    showToast('⚠️ No llegó a guardarse en la nube, revisá la configuración');
   }
 }
 
@@ -571,6 +571,13 @@ function showToast(msg) {
   clearTimeout(t._h);
   t._h = setTimeout(() => t.classList.remove('show'), 2600);
 }
+
+// A pedido: los cartelitos de "todo salió bien" ya no se muestran. Se deja
+// esta función (en vez de borrar cada llamada) para no tener que tocar
+// código en más de 100 lugares, y para poder volver a activarlos fácil si
+// alguna vez se quiere. showToast (arriba) sigue funcionando normal para
+// errores y advertencias.
+function showToastExito(msg) {}
 
 function cerrarModal(id) {
   document.getElementById(id).classList.remove('show');
@@ -834,11 +841,10 @@ async function guardarProductoForm() {
     orden: (STATE.productos[id] && STATE.productos[id].orden != null) ? STATE.productos[id].orden : Object.keys(STATE.productos).length
   };
 
+  cerrarModal('overlay-producto-form');
+  showToastExito('Producto guardado');
   const ok = await guardarProducto(id, def);
-  if (ok) {
-    cerrarModal('overlay-producto-form');
-    showToast('Producto guardado');
-  }
+  if (!ok) showToast('⚠️ El producto no llegó a guardarse en la nube, revisalo');
 }
 
 function confirmarEliminarProducto() {
@@ -860,7 +866,7 @@ async function eliminarProductoUI(id) {
   try {
     await db.collection('doldichipa_productos').doc(id).delete();
     cerrarModal('overlay-producto-form');
-    showToast('Producto eliminado');
+    showToastExito('Producto eliminado');
   } catch (e) {
     showToast('No se pudo eliminar el producto');
   }
@@ -1005,14 +1011,11 @@ async function guardarPrecios() {
     }
   });
 
-  const ok = await savePrecios();
-  if (ok) {
-    showToast(faltantes > 0 ?
-      ('Precios guardados (quedaron ' + faltantes + ' en $0)') :
-      'Precios guardados');
-  }
+  if (faltantes > 0) showToast('Precios guardados (quedaron ' + faltantes + ' en $0)');
   renderVender();
   renderStock();
+  const ok = await savePrecios();
+  if (!ok) showToast('⚠️ Los precios no llegaron a guardarse en la nube, revisalos');
 }
 
 let periodoVentas = 'dia';
@@ -1252,7 +1255,7 @@ async function eliminarGrupoVentaConfirmado(ids) {
       silencioso: true
     });
   }
-  showToast('Pedido eliminado del historial');
+  showToastExito('Pedido eliminado del historial');
   renderVentas();
   renderStock();
   renderCaja();
@@ -1284,7 +1287,7 @@ async function eliminarVentaConfirmada(id, opts) {
     }
     await Promise.all(promesas);
     STATE.ventas = STATE.ventas.filter(v => v.id !== id);
-    if (!(opts && opts.silencioso)) showToast('Venta eliminada');
+    if (!(opts && opts.silencioso)) showToastExito('Venta eliminada');
   } catch (e) {
     if (!(opts && opts.silencioso)) showToast('No se pudo eliminar la venta');
   }
@@ -1409,7 +1412,7 @@ async function reclasificarGastoViejo(id, categoria) {
     await db.collection('doldichipa_remis').doc(id).update({
       categoria
     });
-    showToast('Movido a ' + (categoria === 'insumos' ? 'Producción' : 'Personal'));
+    showToastExito('Movido a ' + (categoria === 'insumos' ? 'Producción' : 'Personal'));
   } catch (e) {
     showToast('No se pudo mover, probá de nuevo');
   }
@@ -1439,7 +1442,7 @@ async function eliminarRemisConfirmado(id) {
       db.collection('doldichipa_remis').doc(id).delete(),
       saveCaja()
     ]);
-    showToast('Movimiento eliminado');
+    showToastExito('Movimiento eliminado');
   } catch (e) {
     showToast('No se pudo eliminar el movimiento');
   }
@@ -1469,7 +1472,7 @@ async function eliminarRemisSoloHistorialConfirmado(id) {
   }
   try {
     await db.collection('doldichipa_remis').doc(id).delete();
-    showToast('Sacado del historial (la Caja no cambió)');
+    showToastExito('Sacado del historial (la Caja no cambió)');
   } catch (e) {
     showToast('No se pudo sacar del historial');
   }
@@ -1506,20 +1509,33 @@ async function confirmarRemisMov() {
     showToast('Completá: ' + faltantes.join(', '));
     return;
   }
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
+    return;
+  }
 
-  const ok = await addRemisMov({
-    ts: Date.now(),
-    tipo: 'gasto',
-    categoria: remisMovCategoria,
-    monto,
-    concepto
-  });
-  if (ok) {
-    STATE.caja.total = (STATE.caja.total || 0) - monto;
-    await saveCaja();
-    cerrarModal('overlay-remis-mov');
-    showToast((remisMovCategoria === 'insumos' ? 'Gasto de insumos' : 'Gasto personal') + ' registrado');
-    renderCaja();
+  const categoriaAlMomento = remisMovCategoria;
+
+  // Mostramos todo resuelto de inmediato, sin esperar la confirmación de
+  // Firebase, y mandamos el guardado real en paralelo, en segundo plano.
+  STATE.caja.total = (STATE.caja.total || 0) - monto;
+  cerrarModal('overlay-remis-mov');
+  showToastExito((categoriaAlMomento === 'insumos' ? 'Gasto de insumos' : 'Gasto personal') + ' registrado');
+  renderCaja();
+
+  try {
+    await Promise.all([
+      db.collection('doldichipa_remis').add({
+        ts: Date.now(),
+        tipo: 'gasto',
+        categoria: categoriaAlMomento,
+        monto,
+        concepto
+      }),
+      saveCaja()
+    ]);
+  } catch (e) {
+    showToast('⚠️ Este gasto no llegó a guardarse en la nube, revisalo');
   }
 }
 
@@ -1545,12 +1561,11 @@ async function confirmarAjustarCaja() {
   }
   input.style.borderColor = 'var(--border)';
   STATE.caja.total = val;
-  const ok = await saveCaja();
-  if (ok) {
-    cerrarModal('overlay-ajustar-caja');
-    showToast('Saldo actualizado');
-  }
+  cerrarModal('overlay-ajustar-caja');
+  showToastExito('Saldo actualizado');
   renderCaja();
+  const ok = await saveCaja();
+  if (!ok) showToast('⚠️ El nuevo saldo no llegó a guardarse en la nube, revisalo');
 }
 
 /* ================= RESUMEN GENERAL (comparte el período con Ventas) ================= */
@@ -1887,7 +1902,7 @@ async function marcarVentaPagada(ids, monto) {
     })));
     STATE.caja.total = (STATE.caja.total || 0) + monto;
     await saveCaja();
-    showToast('Marcado como pagado · ' + fmtMoney(monto));
+    showToastExito('Marcado como pagado · ' + fmtMoney(monto));
     renderCaja();
   } catch (e) {
     showToast('No se pudo marcar como pagado, probá de nuevo');
@@ -2013,16 +2028,15 @@ async function guardarPremioForm() {
     premio.cantidadLabel = premioCantidadActual.label;
     premio.cantidadQty = premioCantidadActual.qty;
   }
+  cerrarModal('overlay-premio-form');
+  showToastExito('Premio guardado');
   const ok = await addPremio(premio);
-  if (ok) {
-    cerrarModal('overlay-premio-form');
-    showToast('Premio guardado');
-  }
+  if (!ok) showToast('⚠️ El premio no llegó a guardarse en la nube, revisalo');
 }
 
 async function eliminarPremioUI(id) {
   const ok = await eliminarPremio(id);
-  if (ok) showToast('Premio eliminado');
+  if (ok) showToastExito('Premio eliminado');
 }
 
 /* ================= CLIENTES ================= */
@@ -2058,7 +2072,7 @@ async function eliminarClienteUI(dni, nombre) {
   btn.onclick = async () => {
     cerrarModal('overlay-confirm-eliminar-cliente');
     const eliminado = await eliminarCliente(dni);
-    if (eliminado) showToast('Cliente eliminado');
+    if (eliminado) showToastExito('Cliente eliminado');
   };
   mostrarOverlay('overlay-confirm-eliminar-cliente');
 }
@@ -2272,7 +2286,7 @@ function iniciarVenta(prod, optKey, customOpt) {
     monto: precio
   });
   renderPedidoItems();
-  showToast('Agregado: ' + producto.label + ' - ' + opt.label);
+  showToastExito('Agregado: ' + producto.label + ' - ' + opt.label);
 }
 
 /* ================= LIBRETA DE PEDIDOS ================= */
@@ -2414,37 +2428,48 @@ async function guardarPedido() {
   guardandoPedido = true;
   const cliente = document.getElementById('ped-cliente').value.trim() || 'Sin nombre';
   const direccion = document.getElementById('ped-direccion').value.trim();
+  const esEdicion = !!pedidoEditId;
+  // Capturamos todo ANTES de limpiar el formulario, para no mandar a
+  // Firebase datos ya vacíos.
+  const idAEditar = pedidoEditId;
+  const itemsAGuardar = pedidoItemsActual;
+  const envioAGuardar = pedidoEnvioActual;
+  const localidadAGuardar = localidadPedidoActual;
+
+  // Actualizamos la pantalla YA MISMO (cerramos el modal, avisamos, y
+  // limpiamos el formulario) sin esperar la confirmación de Firebase —
+  // eso es lo que generaba esa espera de 1-2 segundos. El guardado real
+  // se manda en paralelo, en segundo plano.
+  cerrarModal('overlay-pedido-form');
+  showToastExito(esEdicion ? 'Pedido actualizado' : 'Pedido guardado');
+  if (!esEdicion) notificarPedidoNuevo({ cliente, items: itemsAGuardar });
+  pedidoItemsActual = [];
+  pedidoEnvioActual = undefined;
+  pedidoEditId = null;
+  guardandoPedido = false;
+
   try {
-    if (pedidoEditId) {
-      await db.collection('doldichipa_pedidos').doc(pedidoEditId).update({
+    if (esEdicion) {
+      await db.collection('doldichipa_pedidos').doc(idAEditar).update({
         cliente,
-        items: pedidoItemsActual,
-        envio: pedidoEnvioActual,
+        items: itemsAGuardar,
+        envio: envioAGuardar,
         direccion,
-        localidad: localidadPedidoActual || null
+        localidad: localidadAGuardar || null
       });
-      showToast('Pedido actualizado');
     } else {
       await db.collection('doldichipa_pedidos').add({
         cliente,
-        items: pedidoItemsActual,
-        envio: pedidoEnvioActual,
+        items: itemsAGuardar,
+        envio: envioAGuardar,
         direccion,
-        localidad: localidadPedidoActual || null,
+        localidad: localidadAGuardar || null,
         estado: 'pendiente',
         creadoTs: Date.now()
       });
-      showToast('Pedido guardado');
-      notificarPedidoNuevo({ cliente, items: pedidoItemsActual });
     }
-    cerrarModal('overlay-pedido-form');
-    pedidoItemsActual = [];
-    pedidoEnvioActual = undefined;
-    pedidoEditId = null;
   } catch (e) {
-    showToast('No se pudo guardar el pedido');
-  } finally {
-    guardandoPedido = false;
+    showToast('⚠️ Este pedido no llegó a guardarse en la nube, revisalo');
   }
 }
 
@@ -2627,7 +2652,7 @@ async function eliminarPedidoConfirmado(id) {
   }
   try {
     await db.collection('doldichipa_pedidos').doc(id).delete();
-    showToast('Pedido eliminado');
+    showToastExito('Pedido eliminado');
   } catch (e) {
     showToast('No se pudo eliminar el pedido');
   }
@@ -2874,7 +2899,9 @@ async function confirmarVentaInterno() {
   // falla, se avisa más abajo con un cartel.
   const total = items.reduce((s, i) => s + i.monto, 0) + envioMonto;
   cerrarModal('overlay-confirm');
-  showToast((pagadoVenta ? 'Pedido registrado · ' : '⏳ Pedido registrado como DEBE · ') + fmtMoney(total) + (premioSeleccionadoVenta ? ' · Premio aplicado: ' + premioSeleccionadoVenta.nombre : ''));
+  if (!pagadoVenta) {
+    showToast('⏳ Pedido registrado como DEBE · ' + fmtMoney(total) + (premioSeleccionadoVenta ? ' · Premio aplicado: ' + premioSeleccionadoVenta.nombre : ''));
+  }
 
   // Dejar rastro en la libreta de pedidos (para "Completados hoy"): si esta
   // venta venía de un pedido en espera, se marca ese mismo como listo; si
@@ -2973,14 +3000,13 @@ async function confirmarAgregarStock() {
   input.style.borderColor = 'var(--border)';
   const p = STATE.productos[editarStockProd];
   STATE.stock[editarStockProd] = (STATE.stock[editarStockProd] || 0) + val;
-  const ok = await saveStock();
-  if (ok) {
-    showToast(p.label + ': stock actualizado');
-    input.value = '';
-    document.getElementById('editar-stock-input').value = STATE.stock[editarStockProd];
-  }
+  showToastExito(p.label + ': stock actualizado');
+  input.value = '';
+  document.getElementById('editar-stock-input').value = STATE.stock[editarStockProd];
   renderStock();
   renderVender();
+  const ok = await saveStock();
+  if (!ok) showToast('⚠️ El stock no llegó a guardarse en la nube, revisalo');
 }
 
 async function confirmarEditarStock() {
@@ -2994,20 +3020,19 @@ async function confirmarEditarStock() {
   }
   input.style.borderColor = 'var(--border)';
   STATE.stock[editarStockProd] = val;
-  const ok = await saveStock();
-  if (ok) {
-    cerrarModal('overlay-editar-stock');
-    showToast('Stock de ' + STATE.productos[editarStockProd].label + ' actualizado');
-  }
+  cerrarModal('overlay-editar-stock');
+  showToastExito('Stock de ' + STATE.productos[editarStockProd].label + ' actualizado');
   renderStock();
   renderVender();
+  const ok = await saveStock();
+  if (!ok) showToast('⚠️ El stock no llegó a guardarse en la nube, revisalo');
 }
 async function vaciarStock() {
   STATE.stock[editarStockProd] = 0;
   const ok = await saveStock();
   if (ok) {
     cerrarModal('overlay-editar-stock');
-    showToast('Stock de ' + STATE.productos[editarStockProd].label + ' vaciado');
+    showToastExito('Stock de ' + STATE.productos[editarStockProd].label + ' vaciado');
   }
   renderStock();
   renderVender();
