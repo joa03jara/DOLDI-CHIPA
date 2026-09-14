@@ -2474,7 +2474,37 @@ function ubicacionEmbedSrc(direccion) {
   return 'https://maps.google.com/maps?q=' + encodeURIComponent(query) + '&z=15&output=embed';
 }
 
-// Suma, producto por producto, todo lo que hace falta producir sumando
+// Muestra la cantidad EXACTA a producir, sin perder las unidades sueltas
+// en el redondeo (fmtCantidad normal redondea a la media docena más
+// cercana, lo cual esconde una factura suelta de más). Acá se desglosa
+// en "X docenas y N unidades" cuando hace falta.
+function fmtCantidadProduccion(prod, qtyDocenas) {
+  const p = STATE.productos[prod];
+  if (!p || p.unit !== 'docenas') return fmtCantidad(prod, qtyDocenas);
+  const porDocena = unidadesPorDocena(prod) || 12;
+  let docenasEnteras = Math.floor(qtyDocenas + 1e-9);
+  let resto = qtyDocenas - docenasEnteras;
+  let unidadesSueltas = Math.round(resto * porDocena);
+  if (unidadesSueltas >= porDocena) {
+    docenasEnteras++;
+    unidadesSueltas = 0;
+  }
+  // Si lo que sobra es media docena o más, se muestra como "½ docena" (como
+  // ya se hace en el resto de la app), y lo que quede arriba de eso como
+  // unidades sueltas — para no perder ninguna factura/chipá en el camino.
+  let esMedia = false;
+  if (unidadesSueltas >= porDocena / 2) {
+    esMedia = true;
+    unidadesSueltas -= porDocena / 2;
+  }
+  const partes = [];
+  const totalDocenas = docenasEnteras + (esMedia ? 0.5 : 0);
+  if (totalDocenas > 0) partes.push(fmtNumCorto(totalDocenas) + (totalDocenas <= 1 ? ' docena' : ' docenas'));
+  if (unidadesSueltas > 0) partes.push(unidadesSueltas + (unidadesSueltas === 1 ? ' unidad' : ' unidades'));
+  return partes.length ? partes.join(' y ') : '0 unidades';
+}
+
+
 // TODOS los pedidos en espera juntos — así de un vistazo sabés cuánto
 // tenés que hacer antes de largarte a cocinar, sin sumar a mano.
 function renderResumenProduccion() {
@@ -2502,7 +2532,7 @@ function renderResumenProduccion() {
     return `<div class="prod-row">
       <div class="prod-icon">${prodIconHtml(prod)}</div>
       <div class="prod-name" style="flex:1;">${p.label}</div>
-      <span class="qty-pill">${fmtCantidad(prod, sumaPorProducto[prod])}</span>
+      <span class="qty-pill">${fmtCantidadProduccion(prod, sumaPorProducto[prod])}</span>
     </div>`;
   }).join('');
 }
