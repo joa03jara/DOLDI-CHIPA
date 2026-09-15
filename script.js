@@ -626,11 +626,15 @@ function toggleAccordion(bodyId, group) {
 function toggleDrawer() {
   document.getElementById('drawer').classList.add('show');
   document.getElementById('drawerOverlay').classList.add('show');
+  const nav = document.getElementById('bottomNav');
+  if (nav) nav.style.display = 'none';
 }
 
 function closeDrawer() {
   document.getElementById('drawer').classList.remove('show');
   document.getElementById('drawerOverlay').classList.remove('show');
+  const nav = document.getElementById('bottomNav');
+  if (nav) nav.style.display = 'flex';
 }
 
 /* ================= TABS ================= */
@@ -683,6 +687,12 @@ function renderBottomNav() {
   </button>`;
 
   nav.innerHTML = html;
+
+  // Las 4 que ya están abajo no hace falta repetirlas también en el menú
+  // lateral — ahí solo quedan las que NO elegiste para la barra rápida.
+  document.querySelectorAll('.drawer-item[data-tab]').forEach(btn => {
+    btn.style.display = elegidos.includes(btn.dataset.tab) ? 'none' : 'flex';
+  });
 }
 
 function toggleAccesoRapido(id) {
