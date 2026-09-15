@@ -324,6 +324,11 @@
     <section class="tab-panel" id="tab-config">
       <div class="section-title">Configuración</div>
       <div class="card">
+        <h2>Accesos rápidos (barra de abajo)</h2>
+        <p class="muted" style="margin-top:-4px;">Elegí hasta 4 secciones para tenerlas siempre a mano, sin abrir el menú. Tocá para marcar o desmarcar.</p>
+        <div id="accesos-rapidos-lista" style="margin-top:10px;"></div>
+      </div>
+      <div class="card">
         <h2 id="config-status-title">🔴 No conectado a la nube</h2>
         <p class="muted" id="config-status-desc" style="margin-top:-4px;">Sin conectar, los datos NO se comparten entre celulares y se pierden al cerrar.</p>
       </div>
@@ -357,6 +362,8 @@
     </section>
 
   </main>
+
+  <nav class="bottom-nav" id="bottomNav"></nav>
 
   <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
   <nav class="drawer" id="drawer">

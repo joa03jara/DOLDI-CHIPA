@@ -634,11 +634,95 @@ function closeDrawer() {
 }
 
 /* ================= TABS ================= */
+/* ================= BARRA INFERIOR (accesos rápidos personalizables) ================= */
+
+// Ícono e nombre de cada sección, para armar tanto la barra de abajo como
+// la lista de "elegí tus 4 favoritas" en Configuración. Se reutilizan los
+// mismos íconos que ya tiene el menú lateral, para que se vea todo igual.
+const TABS_INFO = {
+  pedidos: { label: 'Pedidos', icono: '<path d="M9 2h6a1 1 0 0 1 1 1v1h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1z"/><path d="M9 11h6M9 15h6M9 7h2"/>' },
+  remis: { label: 'Gastos', icono: '<path d="M3 7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="13" r="1.3" fill="currentColor" stroke="none"/>' },
+  caja: { label: 'Caja', icono: '<rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><circle cx="7" cy="14.5" r="1" fill="currentColor" stroke="none"/>' },
+  stock: { label: 'Stock', icono: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>' },
+  productos: { label: 'Productos', icono: '<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/>' },
+  precios: { label: 'Precios', icono: '<path d="M20.59 13.41L11 3.83 3.83 11l9.58 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83z"/><circle cx="7.5" cy="7.5" r="1"/>' },
+  ventas: { label: 'Ventas', icono: '<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-4"/>' },
+  debe: { label: 'Debe', icono: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 2"/>' },
+  clientes: { label: 'Clientes', icono: '<path d="M12 2l2.6 6.5L21 9l-5 4.4L17.5 21 12 17.3 6.5 21 8 13.4 3 9l6.4-.5z"/>' },
+  config: { label: 'Configuración', icono: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>' }
+};
+
+function accesosRapidosGuardados() {
+  try {
+    const guardado = JSON.parse(localStorage.getItem('doldi_accesos_rapidos') || 'null');
+    if (Array.isArray(guardado) && guardado.length > 0) return guardado;
+  } catch (e) {}
+  // Por defecto, antes de que el usuario elija los suyos.
+  return ['pedidos', 'ventas', 'remis', 'caja'];
+}
+
+function renderBottomNav() {
+  const nav = document.getElementById('bottomNav');
+  if (!nav) return;
+  const elegidos = accesosRapidosGuardados();
+  const activa = document.querySelector('.tab-panel.active');
+  const activaId = activa ? activa.id.replace('tab-', '') : '';
+
+  let html = elegidos.map(id => {
+    const info = TABS_INFO[id];
+    if (!info) return '';
+    return `<button class="bottom-nav-item ${activaId === id ? 'active' : ''}" onclick="irATab('${id}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${info.icono}</svg>
+      <span>${info.label}</span>
+    </button>`;
+  }).join('');
+
+  html += `<button class="bottom-nav-item ${elegidos.includes(activaId) ? '' : 'active'}" onclick="toggleDrawer()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    <span>Más</span>
+  </button>`;
+
+  nav.innerHTML = html;
+}
+
+function toggleAccesoRapido(id) {
+  let elegidos = accesosRapidosGuardados();
+  if (elegidos.includes(id)) {
+    elegidos = elegidos.filter(x => x !== id);
+  } else {
+    if (elegidos.length >= 4) {
+      showToast('Ya elegiste 4. Sacá una para agregar otra.');
+      return;
+    }
+    elegidos.push(id);
+  }
+  localStorage.setItem('doldi_accesos_rapidos', JSON.stringify(elegidos));
+  renderAccesosRapidosLista();
+  renderBottomNav();
+}
+
+function renderAccesosRapidosLista() {
+  const wrap = document.getElementById('accesos-rapidos-lista');
+  if (!wrap) return;
+  const elegidos = accesosRapidosGuardados();
+  wrap.innerHTML = Object.keys(TABS_INFO).map(id => {
+    const info = TABS_INFO[id];
+    const marcado = elegidos.includes(id);
+    return `<div class="prod-row" style="cursor:pointer;" onclick="toggleAccesoRapido('${id}')">
+      <div class="prod-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${info.icono}</svg></div>
+      <div class="prod-name" style="flex:1;">${info.label}</div>
+      <div style="width:24px; height:24px; border-radius:7px; border:1.5px solid ${marcado ? 'var(--orange-dark)' : 'var(--border)'}; background:${marcado ? 'var(--orange-dark)' : 'transparent'}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px;">${marcado ? '✓' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+
 function irATab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.querySelectorAll('.drawer-item').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   closeDrawer();
+  renderBottomNav();
 
   // Al entrar a la pestaña, refrescar con los datos realmente guardados
   // (descarta cualquier texto escrito pero no guardado).
@@ -660,6 +744,7 @@ function irATab(name) {
     renderListaClientes();
   } else if (name === 'config') {
     renderQuienSoyOpts();
+    renderAccesosRapidosLista();
   }
 }
 
@@ -3140,6 +3225,7 @@ function iniciarApp() {
   } catch (e) {}
   applyTheme(savedTheme);
   renderAll();
+  renderBottomNav();
   const cfg = getSavedFirebaseConfig();
   if (cfg) {
     document.getElementById('config-input').value = JSON.stringify(cfg, null, 2).replace(/^\{|\}$/g, '').trim();
