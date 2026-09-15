@@ -199,7 +199,6 @@ function attachListeners() {
     renderStock();
     renderResumen();
     renderDebe();
-    renderGraficos();
   }, () => {
     showToast('No se pudo leer el historial de ventas');
   });
@@ -653,7 +652,6 @@ function irATab(name) {
     renderResumen();
   } else if (name === 'remis') renderRemis();
   else if (name === 'debe') renderDebe();
-  else if (name === 'graficos') renderGraficos();
   else if (name === 'vender') renderVender();
   else if (name === 'clientes') {
     renderPremios();
@@ -1166,59 +1164,6 @@ function renderVentas() {
     </div>`;
   });
   resumen.innerHTML = resumenHtml;
-
-  // Buscador: encuentra una venta puntual en TODO el historial, sin
-  // importar el período elegido arriba (así "ayer" o "la semana pasada"
-  // siempre se encuentran). Para navegar día por día, se usa el
-  // acordeón de "Evolución". Si no hay texto escrito, la tarjeta de
-  // resultados se oculta para no ensuciar la pantalla.
-  const wrap = document.getElementById('ventas-list');
-  const searchEl = document.getElementById('ventas-search');
-  // Sin tildes, para que buscar "maria" encuentre "María" igual.
-  const sinTildes = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const term = searchEl ? sinTildes(searchEl.value.trim().toLowerCase()) : '';
-
-  if (!term) {
-    wrap.style.display = 'none';
-    wrap.innerHTML = '';
-    return;
-  }
-  wrap.style.display = 'block';
-
-  const resultado = STATE.ventas.slice().sort((a, b) => b.ts - a.ts).filter(v => {
-    const d = new Date(v.ts);
-    const fecha1 = d.toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit'
-    });
-    const fecha2 = d.toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-    const envioTxt = v.envio === 'cerca' ? 'envío cerca' : v.envio === 'lejos' ? 'envío lejos' : '';
-    const pedidoVinculado = v.pedidoId ? STATE.pedidos.find(p => p.id === v.pedidoId) : null;
-    const texto = sinTildes([
-      STATE.productos[v.prod] ? STATE.productos[v.prod].label : v.prod,
-      v.qtyLabel || '',
-      envioTxt,
-      pedidoVinculado ? pedidoVinculado.cliente : '',
-      v.localidad || '',
-      fecha1, fecha2,
-      String(v.monto),
-      fmtMoney(v.monto)
-    ].join(' ').toLowerCase());
-    return texto.includes(term);
-  });
-
-  if (resultado.length === 0) {
-    wrap.innerHTML = `<div class="empty">No se encontraron ventas para "${searchEl.value}".</div>`;
-    return;
-  }
-
-  const subgrupos = agruparVentasPorPedido(resultado);
-  const contadorHtml = `<div class="lbl" style="margin-bottom:8px; color:var(--text-2); font-size:12.5px;">${resultado.length} ${resultado.length === 1 ? 'resultado' : 'resultados'}</div>`;
-  wrap.innerHTML = contadorHtml + renderFilasVentas(subgrupos, { mostrarFecha: true });
 }
 
 function eliminarVentaUI(id) {
@@ -1631,83 +1576,6 @@ function renderResumen() {
   renderHistorial();
 }
 
-/* ================= GRÁFICOS (ranking de meses) ================= */
-let graficosExpandido = new Set();
-
-function toggleGraficoMes(clave) {
-  if (graficosExpandido.has(clave)) graficosExpandido.delete(clave);
-  else graficosExpandido.add(clave);
-  renderGraficos();
-}
-
-function renderGraficos() {
-  const wrap = document.getElementById('graficos-ranking-meses');
-  if (!wrap) return;
-  if (STATE.ventas.length === 0) {
-    wrap.innerHTML = '<div class="empty">Todavía no hay ventas registradas.</div>';
-    return;
-  }
-
-  // Se agrupa por mes calendario y se ordena por PLATA (no por fecha), para
-  // que el ranking muestre primero el mes que más vendiste.
-  const buckets = {};
-  STATE.ventas.forEach(v => {
-    const {
-      clave,
-      etiqueta,
-      inicio,
-      fin
-    } = claveYEtiquetaPeriodo(v.ts, 'mes');
-    if (!buckets[clave]) buckets[clave] = {
-      clave,
-      etiqueta,
-      inicio,
-      fin,
-      total: 0
-    };
-    buckets[clave].total += v.monto;
-  });
-  const meses = Object.values(buckets).sort((a, b) => b.total - a.total);
-  const max = meses[0].total || 1;
-
-  wrap.innerHTML = meses.map((m, idx) => {
-    const pct = Math.max(3, Math.round((m.total / max) * 100));
-    const nombreMes = m.etiqueta.charAt(0).toUpperCase() + m.etiqueta.slice(1);
-    const abierto = graficosExpandido.has(m.clave);
-    const claveEscapada = String(m.clave).replace(/'/g, "\\'");
-
-    let detalleHtml = '';
-    if (abierto) {
-      const diasBuckets = {};
-      STATE.ventas.filter(v => v.ts >= m.inicio && v.ts < m.fin).forEach(v => {
-        const d = claveYEtiquetaPeriodo(v.ts, 'dia');
-        if (!diasBuckets[d.clave]) diasBuckets[d.clave] = {
-          etiqueta: d.etiqueta,
-          total: 0
-        };
-        diasBuckets[d.clave].total += v.monto;
-      });
-      const dias = Object.values(diasBuckets).sort((a, b) => b.total - a.total);
-      if (dias.length === 0) {
-        detalleHtml = '<div class="empty" style="padding:10px 0 2px;">Sin ventas este mes.</div>';
-      } else {
-        const mejor = dias[0];
-        const nombreDia = mejor.etiqueta.charAt(0).toUpperCase() + mejor.etiqueta.slice(1);
-        detalleHtml = `<div class="venta-item"><div class="p">🏆 Mejor día: ${nombreDia}</div><div class="m">${fmtMoney(mejor.total)}</div></div>`;
-      }
-    }
-
-    return `<div class="historial-row">
-      <div class="historial-top" onclick="toggleGraficoMes('${claveEscapada}')">
-        <span class="historial-label">${idx+1}. ${abierto ? '▾' : '▸'} ${nombreMes}</span>
-        <span class="historial-monto">${fmtMoney(m.total)}</span>
-      </div>
-      <div class="historial-bar-track" onclick="toggleGraficoMes('${claveEscapada}')"><div class="historial-bar-fill" style="width:${pct}%;"></div></div>
-      ${abierto ? `<div class="historial-detalle">${detalleHtml}</div>` : ''}
-    </div>`;
-  }).join('');
-}
-
 
 // Claves de los "baldes" (día/semana/mes) que el usuario tocó para
 // desplegar el detalle de ventas de ese período, tipo acordeón.
@@ -1801,15 +1669,23 @@ function agruparPorPeriodo(tipo) {
 function renderHistorial() {
   const wrap = document.getElementById('historial-lista');
   if (!wrap) return;
-  const datos = agruparPorPeriodo(periodoVentas).slice(0, 14);
+  let datos = agruparPorPeriodo(periodoVentas);
   if (datos.length === 0) {
     wrap.innerHTML = '<div class="empty">Todavía no hay ventas registradas.</div>';
     return;
   }
-  wrap.innerHTML = datos.map(d => {
+
+  // En "Mes" se ordena por plata (ranking: el mejor mes primero), no por
+  // fecha — así de un vistazo ves qué mes/temporada te rindió más.
+  const esRankingMeses = periodoVentas === 'mes';
+  if (esRankingMeses) datos = datos.slice().sort((a, b) => b.total - a.total);
+  datos = datos.slice(0, 14);
+
+  wrap.innerHTML = datos.map((d, idx) => {
     const etiqueta = d.etiqueta.charAt(0).toUpperCase() + d.etiqueta.slice(1);
     const abierto = historialExpandido.has(d.clave);
     const claveEscapada = String(d.clave).replace(/'/g, "\\'");
+    const numeroRanking = esRankingMeses ? (idx + 1) + '. ' : '';
 
     let detalleHtml = '';
     if (abierto) {
@@ -1819,14 +1695,27 @@ function renderHistorial() {
       if (ventasDelPeriodo.length === 0) {
         detalleHtml = '<div class="empty" style="padding:10px 0 2px;">No hay ventas registradas en este período.</div>';
       } else {
+        // En "Mes" se destaca primero cuál fue el mejor día puntual de ese mes.
+        let mejorDiaHtml = '';
+        if (esRankingMeses) {
+          const diasBuckets = {};
+          ventasDelPeriodo.forEach(v => {
+            const diaInfo = claveYEtiquetaPeriodo(v.ts, 'dia');
+            if (!diasBuckets[diaInfo.clave]) diasBuckets[diaInfo.clave] = { etiqueta: diaInfo.etiqueta, total: 0 };
+            diasBuckets[diaInfo.clave].total += v.monto;
+          });
+          const mejorDia = Object.values(diasBuckets).sort((a, b) => b.total - a.total)[0];
+          const nombreMejorDia = mejorDia.etiqueta.charAt(0).toUpperCase() + mejorDia.etiqueta.slice(1);
+          mejorDiaHtml = `<div class="venta-item"><div class="p">🏆 Mejor día: ${nombreMejorDia}</div><div class="m">${fmtMoney(mejorDia.total)}</div></div>`;
+        }
         const subgrupos = agruparVentasPorPedido(ventasDelPeriodo);
-        detalleHtml = renderFilasVentas(subgrupos, { mostrarFecha: periodoVentas !== 'dia' });
+        detalleHtml = mejorDiaHtml + renderFilasVentas(subgrupos, { mostrarFecha: periodoVentas !== 'dia' });
       }
     }
 
     return `<div class="historial-row">
       <div class="historial-top" onclick="toggleHistorialRow('${claveEscapada}')">
-        <span class="historial-label">${abierto ? '▾' : '▸'} ${etiqueta}</span>
+        <span class="historial-label">${numeroRanking}${abierto ? '▾' : '▸'} ${etiqueta}</span>
         <span class="historial-monto">${fmtMoney(d.total)}</span>
       </div>
       ${abierto ? `<div class="historial-detalle">${detalleHtml}</div>` : ''}

@@ -195,7 +195,6 @@
     <!-- VENTAS -->
     <section class="tab-panel" id="tab-ventas">
       <div class="section-title">Ventas</div>
-      <input type="text" id="ventas-search" placeholder="Buscar cliente, producto, monto o fecha..." oninput="renderVentas()" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px; background:var(--bg); color:var(--text); margin-bottom:14px;" autocomplete="off">
 
       <div class="tabs-underline">
         <button class="active" data-periodo="dia" onclick="cambiarPeriodoVentas('dia')">Día</button>
@@ -213,8 +212,6 @@
         <button data-localidad="Tartagal" onclick="cambiarLocalidadFiltro('Tartagal')">Tartagal</button>
         <button data-localidad="Mosconi" onclick="cambiarLocalidadFiltro('Mosconi')">Mosconi</button>
       </div>
-
-      <div class="card" id="ventas-list" style="display:none;"></div>
 
       <!-- El único número que importa de un vistazo: la Ganancia (en Semana/Mes) o simplemente lo vendido (en Día) -->
       <div class="card">
@@ -258,13 +255,6 @@
         <div class="lbl">Total que te deben</div>
       </div>
       <div class="card" id="debe-lista"></div>
-    </section>
-
-    <!-- GRÁFICOS -->
-    <section class="tab-panel" id="tab-graficos">
-      <div class="section-title">Gráficos</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Ranking de todos los meses, del que más vendiste al que menos. Tocá un mes para ver su mejor día.</p>
-      <div class="card" id="graficos-ranking-meses"></div>
     </section>
 
     <!-- CLIENTES Y PUNTOS -->
@@ -433,12 +423,6 @@
       </svg>
       Debe
       <span id="debe-badge" style="display:none; margin-left:auto; background:var(--red); color:#fff; font-size:11px; font-weight:800; border-radius:10px; padding:1px 7px;">0</span>
-    </button>
-    <button class="drawer-item" data-tab="graficos" onclick="irATab('graficos')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 20V10M11 20V4M18 20v-7" />
-      </svg>
-      Gráficos
     </button>
     <button class="drawer-item" data-tab="clientes" onclick="irATab('clientes')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
