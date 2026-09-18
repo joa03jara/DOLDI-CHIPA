@@ -85,6 +85,7 @@ let STATE = {
   premios: [],
   clientes: [],
   pedidos: [],
+  debo: [],
   caja: {
     total: 0
   },
@@ -177,6 +178,15 @@ function attachListeners() {
     if (document.getElementById('tab-pedidos').classList.contains('active')) renderPedidos();
   }, () => {
     showToast('No se pudieron leer los pedidos de la nube');
+  });
+  db.collection('doldichipa_debo').orderBy('creadoTs', 'asc').onSnapshot(snap => {
+    STATE.debo = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+    renderDebo();
+  }, () => {
+    showToast('No se pudieron leer las deudas de la nube');
   });
   db.collection('doldichipa').doc('caja').onSnapshot(doc => {
     // Compatible con la versión anterior (que guardaba efectivo/transferencia
@@ -652,6 +662,7 @@ const TABS_INFO = {
   precios: { label: 'Precios', icono: '<path d="M20.59 13.41L11 3.83 3.83 11l9.58 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83z"/><circle cx="7.5" cy="7.5" r="1"/>' },
   ventas: { label: 'Ventas', icono: '<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-4"/>' },
   debe: { label: 'Debe', icono: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 2"/>' },
+  debo: { label: 'Debo', icono: '<path d="M17 9V7a4 4 0 0 0-8 0v2"/><rect x="5" y="9" width="14" height="12" rx="2"/><path d="M12 14v3"/>' },
   clientes: { label: 'Clientes', icono: '<path d="M12 2l2.6 6.5L21 9l-5 4.4L17.5 21 12 17.3 6.5 21 8 13.4 3 9l6.4-.5z"/>' },
   config: { label: 'Configuración', icono: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>' }
 };
@@ -746,6 +757,7 @@ function irATab(name) {
     renderResumen();
   } else if (name === 'remis') renderRemis();
   else if (name === 'debe') renderDebe();
+  else if (name === 'debo') renderDebo();
   else if (name === 'vender') renderVender();
   else if (name === 'clientes') {
     renderPremios();
@@ -1353,17 +1365,52 @@ function filtrarPorRango(list, rango) {
   return list;
 }
 
-/* ================= REMIS ================= */
-let rangoRemis = 'hoy';
+/* ================= REMIS (Gastos) ================= */
+let periodoGastos = 'dia';
+let mesOffsetGastos = 0; // 0 = mes actual, -1 = mes anterior, etc. (independiente del de Ventas)
 
-function cambiarRangoRemis(r) {
-  rangoRemis = r;
-  document.querySelectorAll('#tab-remis .segmented button').forEach(b => b.classList.toggle('active', b.dataset.range === r));
+function cambiarPeriodoGastos(p) {
+  periodoGastos = p;
+  mesOffsetGastos = 0;
+  document.querySelectorAll('#tab-remis .tabs-underline button[data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === p));
+  const nav = document.getElementById('gastos-mes-navegador');
+  if (nav) nav.style.display = (p === 'mes') ? 'flex' : 'none';
+  renderRemis();
+}
+
+function fechaReferenciaGastos() {
+  if (periodoGastos === 'mes' && mesOffsetGastos !== 0) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + mesOffsetGastos);
+    return d.getTime();
+  }
+  return Date.now();
+}
+
+function moverMesGastos(delta) {
+  const nuevoOffset = mesOffsetGastos + delta;
+  if (nuevoOffset > 0) return;
+  mesOffsetGastos = nuevoOffset;
   renderRemis();
 }
 
 function renderRemis() {
-  const list = filtrarPorRango(STATE.remis.slice().sort((a, b) => b.ts - a.ts), rangoRemis);
+  const rango = claveYEtiquetaPeriodo(fechaReferenciaGastos(), periodoGastos);
+  const list = STATE.remis.filter(m => m.ts >= rango.inicio && m.ts < rango.fin).sort((a, b) => b.ts - a.ts);
+
+  const fechaRef = new Date(fechaReferenciaGastos());
+  const nombrePeriodo = periodoGastos === 'dia' ? 'hoy' : periodoGastos === 'semana' ? 'esta semana' : (mesOffsetGastos === 0 ? 'este mes' : fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }));
+  const labelEl = document.getElementById('remis-neto-label');
+  if (labelEl) labelEl.textContent = 'Total gastado ' + nombrePeriodo;
+
+  const navLabelEl = document.getElementById('gastos-mes-navegador-label');
+  const navSiguienteEl = document.getElementById('gastos-mes-navegador-siguiente');
+  if (navLabelEl) {
+    const nombreMesNav = fechaRef.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    navLabelEl.textContent = nombreMesNav.charAt(0).toUpperCase() + nombreMesNav.slice(1);
+  }
+  if (navSiguienteEl) navSiguienteEl.style.opacity = (mesOffsetGastos === 0) ? '0.3' : '1';
 
   // Los movimientos viejos (de cuando esta sección era "Remis") no tienen
   // categoría cargada; se agrupan aparte para no perderlos ni mezclarlos
@@ -1890,6 +1937,107 @@ async function marcarVentaPagada(ids, monto) {
     renderCaja();
   } catch (e) {
     showToast('No se pudo marcar como pagado, probá de nuevo');
+  }
+}
+
+/* ================= DEBO (plata que yo le debo a otros) ================= */
+// A diferencia de "Debe", esto es solo una lista/recordatorio manual: no
+// toca la Caja ni los Gastos para nada. Vos la cargás y la vas borrando a
+// mano cuando pagás.
+
+function abrirDeboForm() {
+  document.getElementById('debo-concepto').value = '';
+  document.getElementById('debo-monto').value = '';
+  document.getElementById('debo-vence').value = '';
+  document.getElementById('debo-concepto').style.borderColor = 'var(--border)';
+  document.getElementById('debo-monto').style.borderColor = 'var(--border)';
+  mostrarOverlay('overlay-debo-form');
+}
+
+async function confirmarDebo() {
+  const conceptoInput = document.getElementById('debo-concepto');
+  const montoInput = document.getElementById('debo-monto');
+  const venceInput = document.getElementById('debo-vence');
+  const concepto = conceptoInput.value.trim();
+  const monto = parseMiles(montoInput.value);
+
+  let faltantes = [];
+  if (!concepto) faltantes.push('A quién le debés');
+  if (!monto || monto <= 0) faltantes.push('Monto');
+  conceptoInput.style.borderColor = !concepto ? 'var(--red)' : 'var(--border)';
+  montoInput.style.borderColor = (!monto || monto <= 0) ? 'var(--red)' : 'var(--border)';
+  if (faltantes.length > 0) {
+    showToast('Completá: ' + faltantes.join(', '));
+    return;
+  }
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
+    return;
+  }
+
+  cerrarModal('overlay-debo-form');
+  try {
+    await db.collection('doldichipa_debo').add({
+      concepto,
+      monto,
+      vence: venceInput.value || null,
+      creadoTs: Date.now()
+    });
+  } catch (e) {
+    showToast('⚠️ Esa deuda no llegó a guardarse en la nube, revisala');
+  }
+}
+
+function renderDebo() {
+  const wrap = document.getElementById('debo-lista');
+  const totalEl = document.getElementById('debo-total');
+  if (!wrap) return;
+
+  const total = STATE.debo.reduce((s, d) => s + d.monto, 0);
+  if (totalEl) totalEl.textContent = fmtMoney(total);
+
+  if (STATE.debo.length === 0) {
+    wrap.innerHTML = '<div class="empty">No tenés deudas anotadas 🎉</div>';
+    return;
+  }
+
+  const nombreMesVence = vence => {
+    if (!vence) return '';
+    const [anio, mes] = vence.split('-').map(Number);
+    const d = new Date(anio, mes - 1, 1);
+    const nombre = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    return ' · vence ' + nombre.charAt(0).toUpperCase() + nombre.slice(1);
+  };
+
+  wrap.innerHTML = STATE.debo.map(d => `
+    <div class="venta-item">
+      <div style="flex:1;">
+        <div class="p">${d.concepto}</div>
+        <div class="t">${nombreMesVence(d.vence).replace(' · ', '')}</div>
+      </div>
+      <div class="m">${fmtMoney(d.monto)}</div>
+      <button class="btn btn-sm btn-green" style="padding:6px 10px; margin-left:8px;" onclick="marcarDeboPagadoUI('${d.id}', '${(d.concepto || '').replace(/'/g, "\\'")}')">Ya pagué</button>
+    </div>
+  `).join('');
+}
+
+function marcarDeboPagadoUI(id, concepto) {
+  confirmarAccion(
+    'Sacar de la lista: ' + concepto,
+    'Esto solo lo saca de "Debo". No toca la Caja ni los Gastos.',
+    () => marcarDeboPagadoConfirmado(id)
+  );
+}
+
+async function marcarDeboPagadoConfirmado(id) {
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
+    return;
+  }
+  try {
+    await db.collection('doldichipa_debo').doc(id).delete();
+  } catch (e) {
+    showToast('No se pudo sacar de la lista, probá de nuevo');
   }
 }
 
