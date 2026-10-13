@@ -1587,12 +1587,38 @@ function renderPorConcepto(arr, categoria) {
     g.total = g.items.reduce((s, m) => s + m.monto, 0);
     return g;
   }).sort((a, b) => b.total - a.total);
-  const maximo = lista[0].total || 1;
+  const totalReal = lista.reduce((s, g) => s + g.total, 0);
+  const totalGeneral = totalReal || 1;
+  const COLORES = ['#f19f17', '#c0392b', '#2e8b57', '#3b82c4', '#8e5bd0', '#16a3a3', '#d6609a', '#8a8a8a'];
+  lista.forEach((g, i) => { g.color = COLORES[Math.min(i, COLORES.length - 1)]; g.pct = g.total / totalGeneral * 100; });
 
-  return lista.map(g => {
+  // Gráfico circular: cada porción es un concepto, con su % del total del período.
+  let acumulado = 0;
+  const porciones = lista.map(g => {
+    const p = g.pct;
+    const claveUI = categoria + '|' + g.clave;
+    const claveEsc = claveUI.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const seg = `<circle cx="21" cy="21" r="15.9155" fill="none" stroke="${g.color}" stroke-width="6" stroke-dasharray="${Math.max(p - 0.4, 0.1)} ${100 - Math.max(p - 0.4, 0.1)}" stroke-dashoffset="${25 - acumulado}" style="cursor:pointer;" onclick="toggleConceptoGasto('${claveEsc}')"></circle>`;
+    acumulado += p;
+    return seg;
+  }).join('');
+  const grafico = `<div style="display:flex; justify-content:center; margin:6px 0 10px;">
+    <div style="position:relative; width:190px; height:190px;">
+      <svg viewBox="0 0 42 42" width="190" height="190">
+        <circle cx="21" cy="21" r="15.9155" fill="none" stroke="var(--border)" stroke-width="6"></circle>
+        ${porciones}
+      </svg>
+      <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none;">
+        <div class="muted" style="font-size:11px;">100%</div>
+        <div style="font-weight:800; font-size:17px;">${fmtMoney(totalReal)}</div>
+      </div>
+    </div>
+  </div>`;
+
+  return grafico + lista.map(g => {
     const claveUI = categoria + '|' + g.clave;
     const abierto = conceptosExpandidos.has(claveUI);
-    const pct = Math.max(4, Math.round(g.total / maximo * 100));
+    const pctTxt = (g.pct >= 10 ? Math.round(g.pct) : Math.round(g.pct * 10) / 10) + '%';
     const claveEsc = claveUI.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     let detalle = '';
     if (abierto) {
@@ -1613,10 +1639,9 @@ function renderPorConcepto(arr, categoria) {
     return `<div style="border-bottom:1px solid var(--border); padding:8px 0;">
       <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="toggleConceptoGasto('${claveEsc}')">
         <div style="flex:1; min-width:0;">
-          <div class="p" style="font-weight:700;">${g.nombre} <span class="muted" style="font-weight:500; font-size:12px;">· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</span></div>
-          <div style="height:6px; border-radius:4px; background:var(--border); margin-top:6px; overflow:hidden;"><div style="height:100%; width:${pct}%; background:var(--orange); border-radius:4px;"></div></div>
+          <div class="p" style="font-weight:700; display:flex; align-items:center; gap:8px;"><span style="width:12px; height:12px; border-radius:50%; background:${g.color}; flex-shrink:0;"></span><span>${g.nombre} <span class="muted" style="font-weight:500; font-size:12px;">· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</span></span></div>
         </div>
-        <div class="m" style="color:var(--red); font-weight:700;">${fmtMoney(g.total)}</div>
+        <div style="text-align:right;"><div class="m" style="color:var(--red); font-weight:700;">${fmtMoney(g.total)}</div><div class="muted" style="font-size:12px; font-weight:700;">${pctTxt}</div></div>
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(${abierto ? 90 : 0}deg);"><path d="M9 6l6 6-6 6"/></svg>
       </div>
       ${detalle}
