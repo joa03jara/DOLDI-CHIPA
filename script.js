@@ -1589,8 +1589,22 @@ function renderPorConcepto(arr, categoria) {
   }).sort((a, b) => b.total - a.total);
   const totalReal = lista.reduce((s, g) => s + g.total, 0);
   const totalGeneral = totalReal || 1;
-  const COLORES = ['#f19f17', '#c0392b', '#2e8b57', '#3b82c4', '#8e5bd0', '#16a3a3', '#d6609a', '#8a8a8a'];
-  lista.forEach((g, i) => { g.color = COLORES[Math.min(i, COLORES.length - 1)]; g.pct = g.total / totalGeneral * 100; });
+  const COLORES = ['#f19f17', '#c0392b', '#2e8b57', '#3b82c4', '#8e5bd0', '#16a3a3', '#d6609a', '#7a9a1f'];
+  // Con pocos conceptos se usa la paleta fija. Con más, se generan tantos
+  // colores como hagan falta, repartidos parejo por toda la rueda de color
+  // (nunca grises ni repetidos), y salteados para que dos porciones vecinas
+  // no queden con colores parecidos.
+  const colorUnico = (i, n) => {
+    if (n <= COLORES.length - 1) return COLORES[i];
+    const mcd = (a, b) => b === 0 ? a : mcd(b, a % b);
+    let paso = Math.max(2, Math.round(n * 0.382));
+    while (mcd(paso, n) !== 1) paso++;
+    const idx = (i * paso) % n;
+    const hue = Math.round(idx * 360 / n + 8) % 360;
+    const luz = [52, 40, 62][Math.floor(i / 12) % 3];
+    return 'hsl(' + hue + ', 72%, ' + luz + '%)';
+  };
+  lista.forEach((g, i) => { g.color = colorUnico(i, lista.length); g.pct = g.total / totalGeneral * 100; });
 
   // Gráfico circular: cada porción es un concepto, con su % del total del período.
   let acumulado = 0;
