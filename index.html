@@ -28,6 +28,7 @@
     <div style="flex:1;">
       <h1>DOLDI CHIPA</h1>
     </div>
+    <button class="theme-toggle repartidor-salir" onclick="salirModoRepartidorUI()" aria-label="Salir del modo repartidor" style="font-size:12px; font-weight:700; width:auto; padding:0 12px; gap:6px;">🔒 Salir</button>
     <button class="theme-toggle" onclick="toggleTheme()" aria-label="Cambiar tema">
       <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="12" cy="12" r="4" />
@@ -45,9 +46,9 @@
     <!-- PEDIDOS (única pantalla para vender: ahora o para armar después) -->
     <section class="tab-panel active" id="tab-pedidos">
       <div class="section-title">Pedidos</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Anotá el pedido y elegí si lo vendés ahora mismo o si lo dejás en espera para armarlo después.</p>
-      <button class="btn btn-gold btn-block" onclick="abrirPedidoForm()">+ Nuevo pedido</button>
-      <div class="card" id="resumen-produccion-card" style="margin-top:14px; display:none;">
+      <p class="muted solo-dueno" style="margin-top:-8px; margin-bottom:14px;">Anotá el pedido y elegí si lo vendés ahora mismo o si lo dejás en espera para armarlo después.</p>
+      <button class="btn btn-gold btn-block solo-dueno" onclick="abrirPedidoForm()">+ Nuevo pedido</button>
+      <div class="card solo-dueno" id="resumen-produccion-card" style="margin-top:14px; display:none;">
         <h2>Para producir (pedidos en espera)</h2>
         <div id="resumen-produccion-lista"></div>
       </div>
@@ -55,7 +56,7 @@
         <h2>En espera</h2>
         <div id="pedidos-lista"></div>
       </div>
-      <div class="acc-group">
+      <div class="acc-group solo-dueno">
         <div class="acc-item">
           <button class="acc-header" data-target="acc-pedidos-listos" data-group="pedidos" onclick="toggleAccordion('acc-pedidos-listos','pedidos')">
             <span style="flex:1; text-align:left;">Completados hoy</span>
@@ -71,10 +72,11 @@
     <!-- REMIS -->
     <section class="tab-panel" id="tab-remis">
       <div class="section-title">Gastos</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Insumos: lo que comprás para producir (harina, queso, bolsas). Personal: lo que gastás vos, sin relación con la producción.</p>
-      <div class="grid2" style="margin-bottom:12px;">
-        <button class="btn btn-rust btn-block" onclick="abrirRemisMov('insumos')">+ Insumos</button>
-        <button class="btn btn-gold btn-block" onclick="abrirRemisMov('personal')">+ Personal</button>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Insumos: lo que comprás para producir (harina, queso, bolsas). Personal: lo que gastás vos, sin relación con la producción. Delivery: lo que le pagás al repartidor y la nafta.</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px;">
+        <button class="btn btn-rust btn-block" style="padding-left:6px; padding-right:6px;" onclick="abrirRemisMov('insumos')">+ Insumos</button>
+        <button class="btn btn-gold btn-block" style="padding-left:6px; padding-right:6px;" onclick="abrirRemisMov('personal')">+ Personal</button>
+        <button class="btn btn-green btn-block" style="padding-left:6px; padding-right:6px;" onclick="abrirRemisMov('delivery')">+ Delivery</button>
       </div>
       <div class="tabs-underline">
         <button class="active" data-periodo="dia" onclick="cambiarPeriodoGastos('dia')">Día</button>
@@ -99,6 +101,10 @@
           <div class="prod-name">Personal</div>
           <div class="stock-num" id="remis-gastos" style="color:var(--red);">$0</div>
         </div>
+        <div class="prod-row">
+          <div class="prod-name">Delivery</div>
+          <div class="stock-num" id="remis-delivery" style="color:var(--red);">$0</div>
+        </div>
       </div>
 
       <div class="section-title clickeable" style="margin-top:26px; font-size:18px;" id="remis-insumos-header" onclick="toggleRemisSeccion('insumos')">
@@ -115,6 +121,14 @@
       </div>
       <div class="card" id="remis-personal-wrap" style="display:none;">
         <div id="remis-list-personal"></div>
+      </div>
+
+      <div class="section-title clickeable" style="margin-top:18px; font-size:18px;" id="remis-delivery-header" onclick="toggleRemisSeccion('delivery')">
+        <span>Historial Delivery</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+      </div>
+      <div class="card" id="remis-delivery-wrap" style="display:none;">
+        <div id="remis-list-delivery"></div>
       </div>
     </section>
 
@@ -229,6 +243,10 @@
           <div class="prod-name">Gastos personales</div>
           <div class="stock-num" id="resumen-personal-detalle" style="font-size:16px;">$0</div>
         </div>
+        <div class="prod-row">
+          <div class="prod-name">Gastos de delivery</div>
+          <div class="stock-num" id="resumen-delivery-detalle" style="font-size:16px;">$0</div>
+        </div>
       </div>
 
       <div class="section-title clickeable" style="margin-top:18px; font-size:18px;" id="btn-por-producto" onclick="toggleVentasPorProducto()">
@@ -275,7 +293,7 @@
       <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Los puntos vencen si el cliente no compra en 60 días.</p>
 
       <div class="acc-group">
-        <div class="acc-item">
+        <div class="acc-item solo-dueno">
           <button class="acc-header" data-target="acc-clientes-puntaje" data-group="clientes" onclick="toggleAccordion('acc-clientes-puntaje','clientes')">
             <span class="h2-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="9" />
@@ -311,7 +329,7 @@
           </div>
         </div>
 
-        <div class="acc-item">
+        <div class="acc-item solo-dueno">
           <button class="acc-header" data-target="acc-clientes-premios" data-group="clientes" onclick="toggleAccordion('acc-clientes-premios','clientes')">
             <span class="h2-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20.59 13.41L11 3.83 3.83 11l9.58 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83z" />
@@ -339,6 +357,15 @@
         <h2>Accesos rápidos (barra de abajo)</h2>
         <p class="muted" style="margin-top:-4px;">Elegí hasta 4 secciones para tenerlas siempre a mano, sin abrir el menú. Tocá para marcar o desmarcar.</p>
         <div id="accesos-rapidos-lista" style="margin-top:10px;"></div>
+      </div>
+      <div class="card">
+        <h2>Modo repartidor</h2>
+        <p class="muted" style="margin-top:-4px;">Para el celular de quien hace el delivery: solo ve Pedidos (con ubicación y cobro) y Clientes (puntos). No ve ventas, gastos, caja ni configuración. Para salir del modo hace falta el PIN que elijas acá.</p>
+        <div class="row-input" style="margin-top:10px;">
+          <label>PIN (4 a 6 números)</label>
+          <input type="text" inputmode="numeric" maxlength="6" id="repartidor-pin-nuevo" autocomplete="off" style="width:110px; padding:8px; border:1px solid var(--border); border-radius:8px; font-size:14px; text-align:left;">
+        </div>
+        <button class="btn btn-gold btn-block" style="margin-top:10px;" onclick="activarModoRepartidor()">Activar modo repartidor en este celular</button>
       </div>
       <div class="card">
         <h2 id="config-status-title">🔴 No conectado a la nube</h2>
@@ -500,7 +527,7 @@
       </div>
       <div id="venta-cliente-resultado" style="margin-top:10px;"></div>
 
-      <a href="javascript:void(0)" id="venta-fecha-toggle" onclick="mostrarFechaVenta()" style="display:block; margin-top:16px; font-size:12.5px; color:var(--muted); text-decoration:underline;">¿Es de otro día? Tocá acá para cambiar la fecha</a>
+      <a href="javascript:void(0)" id="venta-fecha-toggle" class="solo-dueno" onclick="mostrarFechaVenta()" style="display:block; margin-top:16px; font-size:12.5px; color:var(--muted); text-decoration:underline;">¿Es de otro día? Tocá acá para cambiar la fecha</a>
       <div class="form-field" id="venta-fecha-wrap" style="margin-top:10px; margin-bottom:14px; display:none;">
         <label>Fecha y hora de la venta</label>
         <input type="datetime-local" id="venta-fecha-hora" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--bg); color:var(--text);">
@@ -523,6 +550,17 @@
       </div>
 
       <button class="btn btn-green btn-block" style="margin-top:10px;" id="btn-confirmar-pedido" onclick="confirmarVenta()" disabled>Confirmar pedido</button>
+    </div>
+  </div>
+
+  <!-- SALIR MODO REPARTIDOR -->
+  <div class="overlay" id="overlay-pin-salir">
+    <div class="sheet sheet-wrap">
+      <button class="close" onclick="cerrarModal('overlay-pin-salir')">✕</button>
+      <h3>Salir del modo repartidor</h3>
+      <p class="muted">Ingresá el PIN para volver a la app completa.</p>
+      <input type="password" inputmode="numeric" maxlength="6" id="pin-salir-input" autocomplete="off" style="width:100%; box-sizing:border-box; padding:12px; border:1px solid var(--border); border-radius:8px; font-size:18px; text-align:center; letter-spacing:6px; margin-top:8px;">
+      <button class="btn btn-gold btn-block" style="margin-top:14px;" onclick="confirmarSalirModoRepartidor()">Salir</button>
     </div>
   </div>
 
@@ -639,7 +677,7 @@
       <ul style="margin:8px 0 0; padding-left:20px; font-size:13.5px; color:var(--text);">
         <li>Todo el stock cargado (vuelve a 0)</li>
         <li>Todo el historial de ventas</li>
-        <li>Todos los gastos (Insumos y Personal)</li>
+        <li>Todos los gastos (Insumos, Personal y Delivery)</li>
         <li>El total de Caja (vuelve a $0)</li>
         <li>Todos los pedidos de la libreta (en espera y completados)</li>
       </ul>

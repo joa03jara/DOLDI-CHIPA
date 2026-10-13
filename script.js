@@ -634,6 +634,7 @@ function toggleAccordion(bodyId, group) {
 
 /* ================= DRAWER ================= */
 function toggleDrawer() {
+  if (esModoRepartidor()) return;
   document.getElementById('drawer').classList.add('show');
   document.getElementById('drawerOverlay').classList.add('show');
   const nav = document.getElementById('bottomNav');
@@ -645,6 +646,61 @@ function closeDrawer() {
   document.getElementById('drawerOverlay').classList.remove('show');
   const nav = document.getElementById('bottomNav');
   if (nav) nav.style.display = 'flex';
+}
+
+/* ================= MODO REPARTIDOR ================= */
+// Vista reducida para el celular de quien hace el delivery. Solo oculta
+// pantallas en ese celular (se guarda ahí mismo); salir requiere el PIN.
+const TABS_REPARTIDOR = ['pedidos', 'clientes'];
+
+function esModoRepartidor() {
+  try { return localStorage.getItem('doldi_modo') === 'repartidor'; } catch (e) { return false; }
+}
+
+function aplicarModoRepartidor() {
+  document.body.classList.toggle('modo-repartidor', esModoRepartidor());
+}
+
+function activarModoRepartidor() {
+  const input = document.getElementById('repartidor-pin-nuevo');
+  const pin = (input.value || '').trim();
+  if (!/^\d{4,6}$/.test(pin)) {
+    input.style.borderColor = 'var(--red)';
+    showToast('El PIN tiene que ser de 4 a 6 números');
+    return;
+  }
+  input.style.borderColor = 'var(--border)';
+  try {
+    localStorage.setItem('doldi_pin_repartidor', pin);
+    localStorage.setItem('doldi_modo', 'repartidor');
+  } catch (e) {
+    showToast('No se pudo activar en este celular');
+    return;
+  }
+  input.value = '';
+  aplicarModoRepartidor();
+  irATab('pedidos');
+}
+
+function salirModoRepartidorUI() {
+  document.getElementById('pin-salir-input').value = '';
+  document.getElementById('pin-salir-input').style.borderColor = 'var(--border)';
+  mostrarOverlay('overlay-pin-salir');
+}
+
+function confirmarSalirModoRepartidor() {
+  const input = document.getElementById('pin-salir-input');
+  let guardado = null;
+  try { guardado = localStorage.getItem('doldi_pin_repartidor'); } catch (e) {}
+  if (!guardado || input.value.trim() !== guardado) {
+    input.style.borderColor = 'var(--red)';
+    showToast('PIN incorrecto');
+    return;
+  }
+  try { localStorage.removeItem('doldi_modo'); } catch (e) {}
+  cerrarModal('overlay-pin-salir');
+  aplicarModoRepartidor();
+  renderBottomNav();
 }
 
 /* ================= TABS ================= */
@@ -679,7 +735,8 @@ function accesosRapidosGuardados() {
 function renderBottomNav() {
   const nav = document.getElementById('bottomNav');
   if (!nav) return;
-  const elegidos = accesosRapidosGuardados();
+  const repartidor = esModoRepartidor();
+  const elegidos = repartidor ? TABS_REPARTIDOR : accesosRapidosGuardados();
   const activa = document.querySelector('.tab-panel.active');
   const activaId = activa ? activa.id.replace('tab-', '') : '';
 
@@ -692,7 +749,7 @@ function renderBottomNav() {
     </button>`;
   }).join('');
 
-  html += `<button class="bottom-nav-item ${elegidos.includes(activaId) ? '' : 'active'}" onclick="toggleDrawer()">
+  if (!repartidor) html += `<button class="bottom-nav-item ${elegidos.includes(activaId) ? '' : 'active'}" onclick="toggleDrawer()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     <span>Más</span>
   </button>`;
@@ -739,6 +796,7 @@ function renderAccesosRapidosLista() {
 
 
 function irATab(name) {
+  if (esModoRepartidor() && !TABS_REPARTIDOR.includes(name)) name = 'pedidos';
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.querySelectorAll('.drawer-item').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
@@ -1323,8 +1381,9 @@ async function eliminarVentaConfirmada(id, opts) {
     return;
   }
   try {
+    // Una venta "Debe" sin cobrar nunca sumó a la caja, así que no hay nada que restarle.
     STATE.stock[venta.prod] = (STATE.stock[venta.prod] || 0) + (venta.qty || 0);
-    STATE.caja.total = (STATE.caja.total || 0) - (venta.monto || 0);
+    if (venta.pagado !== false) STATE.caja.total = (STATE.caja.total || 0) - (venta.monto || 0);
     const promesas = [
       db.collection('doldichipa_ventas').doc(id).delete(),
       saveStock(),
@@ -1421,16 +1480,19 @@ function renderRemis() {
 
   const listaInsumos = list.filter(esInsumos);
   const listaPersonal = list.filter(esPersonal);
+  const listaDelivery = list.filter(m => m.categoria === 'delivery');
   const listaViejo = list.filter(esViejo);
 
   const totalInsumos = listaInsumos.reduce((s, m) => s + m.monto, 0);
   const totalPersonal = listaPersonal.reduce((s, m) => s + m.monto, 0);
   const totalViejo = listaViejo.reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
-  const totalGastado = totalInsumos + totalPersonal + totalViejo;
+  const totalDelivery = listaDelivery.reduce((s, m) => s + m.monto, 0);
+  const totalGastado = totalInsumos + totalPersonal + totalDelivery + totalViejo;
 
   document.getElementById('remis-neto').textContent = fmtMoney(totalGastado);
   document.getElementById('remis-ingresos').textContent = fmtMoney(totalInsumos);
   document.getElementById('remis-gastos').textContent = fmtMoney(totalPersonal);
+  document.getElementById('remis-delivery').textContent = fmtMoney(totalDelivery);
 
   const filaHoraTexto = m => {
     const d = new Date(m.ts);
@@ -1474,8 +1536,92 @@ function renderRemis() {
     }).join('');
   };
 
-  document.getElementById('remis-list-insumos').innerHTML = renderLista(listaInsumos);
-  document.getElementById('remis-list-personal').innerHTML = renderLista(listaPersonal);
+  document.getElementById('remis-list-insumos').innerHTML = renderPorConcepto(listaInsumos, 'insumos');
+  document.getElementById('remis-list-personal').innerHTML = renderPorConcepto(listaPersonal, 'personal');
+  document.getElementById('remis-list-delivery').innerHTML = renderPorConcepto(listaDelivery, 'delivery');
+}
+
+/* ===== Gastos agrupados por concepto (leche, nafta, etc.) ===== */
+// Dos gastos son "el mismo" si el texto coincide sin importar mayúsculas,
+// tildes ni espacios de más: "Leche", "leche " y "LECHE" suman juntos.
+function normalizarConcepto(txt) {
+  return (txt || '').toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+function capitalizarConcepto(txt) {
+  const t = (txt || '').trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+let conceptosExpandidos = new Set();
+function toggleConceptoGasto(clave) {
+  if (conceptosExpandidos.has(clave)) conceptosExpandidos.delete(clave);
+  else conceptosExpandidos.add(clave);
+  renderRemis();
+}
+
+function renderPorConcepto(arr, categoria) {
+  if (arr.length === 0) return '<div class="empty">Todavía no hay movimientos acá.</div>';
+  const fmtFechaHora = ts => {
+    const d = new Date(ts);
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  };
+  // Rangos fijos (hoy / esta semana / este mes) para mostrar al abrir un concepto
+  const ahora = Date.now();
+  const rHoy = claveYEtiquetaPeriodo(ahora, 'dia');
+  const rSem = claveYEtiquetaPeriodo(ahora, 'semana');
+  const rMes = claveYEtiquetaPeriodo(ahora, 'mes');
+  const sumaEn = (lista, r) => lista.filter(m => m.ts >= r.inicio && m.ts < r.fin).reduce((s, m) => s + m.monto, 0);
+
+  // Agrupa lo del período que se está mirando
+  const grupos = {};
+  arr.forEach(m => {
+    const k = normalizarConcepto(m.concepto) || '(sin concepto)';
+    if (!grupos[k]) grupos[k] = { clave: k, items: [] };
+    grupos[k].items.push(m);
+  });
+  const lista = Object.values(grupos).map(g => {
+    g.items.sort((a, b) => b.ts - a.ts);
+    g.nombre = capitalizarConcepto(g.items[0].concepto) || 'Sin concepto';
+    g.total = g.items.reduce((s, m) => s + m.monto, 0);
+    return g;
+  }).sort((a, b) => b.total - a.total);
+  const maximo = lista[0].total || 1;
+
+  return lista.map(g => {
+    const claveUI = categoria + '|' + g.clave;
+    const abierto = conceptosExpandidos.has(claveUI);
+    const pct = Math.max(4, Math.round(g.total / maximo * 100));
+    const claveEsc = claveUI.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    let detalle = '';
+    if (abierto) {
+      // Todo lo que se compró de este concepto en la historia, para los totales fijos
+      const todos = STATE.remis.filter(m => m.categoria === categoria && normalizarConcepto(m.concepto) === g.clave || (m.categoria === categoria && !g.clave && !m.concepto));
+      detalle = `
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:8px 0;">
+          <div style="text-align:center;"><div class="muted" style="font-size:11px;">Hoy</div><div style="font-weight:700;">${fmtMoney(sumaEn(todos, rHoy))}</div></div>
+          <div style="text-align:center;"><div class="muted" style="font-size:11px;">Esta semana</div><div style="font-weight:700;">${fmtMoney(sumaEn(todos, rSem))}</div></div>
+          <div style="text-align:center;"><div class="muted" style="font-size:11px;">Este mes</div><div style="font-weight:700;">${fmtMoney(sumaEn(todos, rMes))}</div></div>
+        </div>
+        ${g.items.map(m => `<div class="venta-item" style="padding-left:6px;">
+          <div><div class="p" style="font-size:13px;">${fmtFechaHora(m.ts)}</div></div>
+          <div class="m" style="color:var(--red);">− ${fmtMoney(m.monto)}</div>
+          <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick="eliminarRemisUI('${m.id}')">✕</button>
+        </div>`).join('')}`;
+    }
+    return `<div style="border-bottom:1px solid var(--border); padding:8px 0;">
+      <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="toggleConceptoGasto('${claveEsc}')">
+        <div style="flex:1; min-width:0;">
+          <div class="p" style="font-weight:700;">${g.nombre} <span class="muted" style="font-weight:500; font-size:12px;">· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</span></div>
+          <div style="height:6px; border-radius:4px; background:var(--border); margin-top:6px; overflow:hidden;"><div style="height:100%; width:${pct}%; background:var(--orange); border-radius:4px;"></div></div>
+        </div>
+        <div class="m" style="color:var(--red); font-weight:700;">${fmtMoney(g.total)}</div>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(${abierto ? 90 : 0}deg);"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      ${detalle}
+    </div>`;
+  }).join('');
 }
 
 function toggleRemisSeccion(cual) {
@@ -1570,13 +1716,13 @@ let remisMovCategoria = 'insumos'; // 'insumos' o 'personal' — ya no se regist
 
 function abrirRemisMov(categoria) {
   remisMovCategoria = categoria;
-  document.getElementById('remis-mov-title').textContent = categoria === 'insumos' ? 'Registrar gasto de insumos' : 'Registrar gasto personal';
-  document.getElementById('remis-mov-btn').className = 'btn btn-block ' + (categoria === 'insumos' ? 'btn-rust' : 'btn-gold');
+  document.getElementById('remis-mov-title').textContent = categoria === 'insumos' ? 'Registrar gasto de insumos' : categoria === 'delivery' ? 'Registrar gasto de delivery' : 'Registrar gasto personal';
+  document.getElementById('remis-mov-btn').className = 'btn btn-block ' + (categoria === 'insumos' ? 'btn-rust' : categoria === 'delivery' ? 'btn-green' : 'btn-gold');
   document.getElementById('remis-mov-monto').value = '';
   document.getElementById('remis-mov-monto').style.borderColor = 'var(--border)';
   document.getElementById('remis-mov-concepto').value = '';
   document.getElementById('remis-mov-concepto').style.borderColor = 'var(--border)';
-  document.getElementById('remis-mov-concepto').placeholder = categoria === 'insumos' ? 'Ej: Harina, queso, bolsas...' : 'Ej: Nafta, sándwich, gaseosa...';
+  document.getElementById('remis-mov-concepto').placeholder = categoria === 'insumos' ? 'Ej: Harina, queso, bolsas...' : categoria === 'delivery' ? 'Ej: Pago del día, nafta de la moto...' : 'Ej: Nafta, sándwich, gaseosa...';
   mostrarOverlay('overlay-remis-mov');
 }
 async function confirmarRemisMov() {
@@ -1607,7 +1753,7 @@ async function confirmarRemisMov() {
   // Firebase, y mandamos el guardado real en paralelo, en segundo plano.
   STATE.caja.total = (STATE.caja.total || 0) - monto;
   cerrarModal('overlay-remis-mov');
-  showToastExito((categoriaAlMomento === 'insumos' ? 'Gasto de insumos' : 'Gasto personal') + ' registrado');
+  showToastExito((categoriaAlMomento === 'insumos' ? 'Gasto de insumos' : categoriaAlMomento === 'delivery' ? 'Gasto de delivery' : 'Gasto personal') + ' registrado');
   renderCaja();
 
   try {
@@ -1669,6 +1815,8 @@ function renderResumen() {
   const totalInsumos = remisList.filter(m => m.categoria === 'insumos').reduce((s, m) => s + m.monto, 0);
   const totalPersonal = remisList.filter(m => m.categoria === 'personal').reduce((s, m) => s + m.monto, 0);
   const totalViejo = remisList.filter(m => !m.categoria).reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
+  const totalDeliveryResumen = remisList.filter(m => m.categoria === 'delivery').reduce((s, m) => s + m.monto, 0);
+  document.getElementById('resumen-delivery-detalle').textContent = fmtMoney(totalDeliveryResumen);
   document.getElementById('resumen-chipa').textContent = fmtMoney(totalChipa);
   document.getElementById('resumen-insumos-detalle').textContent = fmtMoney(totalInsumos);
   document.getElementById('resumen-personal-detalle').textContent = fmtMoney(totalPersonal + totalViejo);
@@ -1696,7 +1844,7 @@ function renderResumen() {
   } else {
     // En Semana o Mes ya entra tanto lo comprado como lo vendido con eso,
     // así que la resta (ganancia real) tiene sentido.
-    const ganancia = totalChipa - totalInsumos;
+    const ganancia = totalChipa - totalInsumos - totalDeliveryResumen;
     if (gananciaLabelEl) gananciaLabelEl.textContent = 'Ganancia de ' + nombrePeriodo;
     if (gananciaEl) {
       gananciaEl.textContent = fmtMoney(ganancia);
@@ -2234,7 +2382,7 @@ function renderListaClientes() {
         <div class="unit-tag">DNI ${c.dni} · Última compra: ${fmtFecha(c.ultimaCompra)}</div>
       </div>
       <div class="stock-num" style="color:var(--orange-dark);">${puntos} pts</div>
-      <button class="btn btn-sm btn-ghost" style="padding:6px 10px;" onclick="eliminarClienteUI('${c.dni}', '${(c.nombre || '').replace(/'/g, "\\'")}')" aria-label="Eliminar cliente">
+      <button class="btn btn-sm btn-ghost solo-dueno" style="padding:6px 10px;" onclick="eliminarClienteUI('${c.dni}', '${(c.nombre || '').replace(/'/g, "\\'")}')" aria-label="Eliminar cliente">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3 6 5 6 21 6" />
           <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
@@ -2311,7 +2459,7 @@ function renderClienteVenta() {
   const sinPuntos = STATE.premios.filter(p => !alcanzaPuntos(p));
   const sinCoincidir = STATE.premios.filter(p => alcanzaPuntos(p) && !pedidoAlcanzaParaPremio(p));
 
-  if (STATE.premios.length > 0) {
+  if (STATE.premios.length > 0 && !esModoRepartidor()) {
     html += '<p class="muted" style="font-weight:700; margin:10px 0 6px; font-size:12px; text-transform:uppercase;">Premios disponibles</p>';
     if (disponibles.length === 0) {
       html += '<p class="muted">Ningún premio aplica a este pedido todavía.</p>';
@@ -2722,7 +2870,7 @@ function renderPedidos() {
         </div>
         ${embedSrc ? `<iframe class="pedido-card-mapa" src="${embedSrc}" height="150" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>` : ''}
         ${href ? `<a href="${href}" target="_blank" rel="noopener" class="btn btn-sm btn-gold btn-block" style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:10px; text-decoration:none;">📍 Cómo llegar</a>` : ''}
-        <div class="pedido-card-footer">
+        <div class="pedido-card-footer solo-dueno">
           <a href="javascript:void(0)" onclick="abrirPedidoForm('${p.id}')">Editar</a>
           <a href="javascript:void(0)" onclick="eliminarPedidoUI('${p.id}')">Eliminar</a>
         </div>
@@ -2954,7 +3102,9 @@ async function confirmarVentaInterno() {
     }
   }
 
-  // Descontar el stock de cada producto del pedido (sumando cantidades repetidas)
+  // El stock se descuenta siempre (el producto ya salió, lo hayan pagado o
+  // no). La caja, en cambio, solo se toca si ya está pagado (ver más abajo).
+  const pagadoVenta = pagoVentaActual !== 'debe';
   items.forEach(item => {
     STATE.stock[item.prod] = Math.max(0, (STATE.stock[item.prod] || 0) - item.qty);
   });
@@ -2977,7 +3127,6 @@ async function confirmarVentaInterno() {
       clienteNombreVenta = clienteVentaActual.nombre || '';
     }
   }
-  const pagadoVenta = pagoVentaActual !== 'debe';
 
   const ventaPromises = items.map((item, i) => {
     const esUltimo = i === items.length - 1;
@@ -3382,6 +3531,7 @@ function iniciarApp() {
     savedTheme = localStorage.getItem('doldi_theme') || 'light';
   } catch (e) {}
   applyTheme(savedTheme);
+  aplicarModoRepartidor();
   renderAll();
   renderBottomNav();
   const cfg = getSavedFirebaseConfig();

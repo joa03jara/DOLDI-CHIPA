@@ -1260,3 +1260,11 @@ main {
   color: var(--orange-dark);
   text-decoration: none;
 }
+
+
+/* ===== Modo repartidor ===== */
+.repartidor-salir { display: none; }
+body.modo-repartidor .repartidor-salir { display: flex; align-items: center; justify-content: center; }
+body.modo-repartidor .solo-dueno { display: none !important; }
+body.modo-repartidor .drawer,
+body.modo-repartidor .drawer-overlay { display: none !important; }
