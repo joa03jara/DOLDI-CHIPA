@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261017a">
+  <link rel="stylesheet" href="styles.css?v=20261018a">
 </head>
 
 <body>
@@ -568,10 +568,6 @@
       <button class="close" onclick="cerrarModal('overlay-agregar')">✕</button>
       <h3>¿Qué querés anotar?</h3>
       <div class="agregar-grid">
-        <button class="agregar-item" onclick="agregarRapido('pedido')">
-          <span class="ag-ico" style="background:var(--green-soft); color:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v1h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1z"/><path d="M9 11h6M9 15h6M9 7h2"/></svg></span>
-          <span>Pedido o venta</span>
-        </button>
         <button class="agregar-item" onclick="agregarRapido('insumos')">
           <span class="ag-ico" style="background:var(--red-soft); color:var(--red);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg></span>
           <span>Gasto de insumos</span>
@@ -579,10 +575,6 @@
         <button class="agregar-item" onclick="agregarRapido('personal')">
           <span class="ag-ico" style="background:var(--orange-soft); color:var(--orange-dark);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="13" r="1.3" fill="currentColor" stroke="none"/></svg></span>
           <span>Gasto personal</span>
-        </button>
-        <button class="agregar-item" onclick="agregarRapido('delivery')">
-          <span class="ag-ico" style="background:rgba(59,130,196,0.16); color:#3b82c4;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11.5l1.3-4A2 2 0 0 1 8.2 6.2h7.6a2 2 0 0 1 1.9 1.3l1.3 4"/><rect x="2.7" y="11.5" width="18.6" height="5.2" rx="1.6"/><circle cx="7.3" cy="18.7" r="1.6"/><circle cx="16.7" cy="18.7" r="1.6"/></svg></span>
-          <span>Gasto de delivery</span>
         </button>
         <button class="agregar-item" onclick="agregarRapido('debo')">
           <span class="ag-ico" style="background:rgba(142,91,208,0.16); color:#8e5bd0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 9V7a4 4 0 0 0-8 0v2"/><rect x="5" y="9" width="14" height="12" rx="2"/><path d="M12 14v3"/></svg></span>
@@ -659,16 +651,11 @@
   <div class="overlay" id="overlay-remis-mov">
     <div class="sheet sheet-wrap">
       <button class="close" onclick="cerrarModal('overlay-remis-mov')">✕</button>
-      <h3 id="remis-mov-title">Registrar ingreso</h3>
-      <div class="row-input">
-        <label>Monto</label>
-        <div><span class="prefix">$</span><input type="text" inputmode="numeric" id="remis-mov-monto" oninput="formatMiles(this)" style="width:140px; padding:8px; border:1px solid var(--border); border-radius:8px; font-size:14px; text-align:left; background:var(--bg); color:var(--text);" autocomplete="off"></div>
-      </div>
-      <div class="row-input" style="flex-direction:column; align-items:stretch; gap:6px;">
-        <label>Concepto</label>
-        <input type="text" id="remis-mov-concepto" placeholder="Ej: Nafta, viaje centro, pan..." style="width:100%; box-sizing:border-box; padding:8px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--bg); color:var(--text);" autocomplete="off">
-      </div>
-      <button class="btn btn-gold btn-block" id="remis-mov-btn" style="margin-top:14px;" onclick="confirmarRemisMov()">Guardar</button>
+      <h3 id="remis-mov-title">Gasto</h3>
+      <div class="monto-grande"><span>$</span><input type="text" inputmode="numeric" id="remis-mov-monto" oninput="formatMiles(this)" autocomplete="off" aria-label="Monto"></div>
+      <label class="campo-label" for="remis-mov-concepto">Concepto</label>
+      <input type="text" class="campo-simple" id="remis-mov-concepto" autocomplete="off" aria-label="Concepto">
+      <button class="btn btn-gold btn-block" id="remis-mov-btn" style="margin-top:16px;" onclick="confirmarRemisMov()">Guardar</button>
     </div>
   </div>
 
@@ -676,20 +663,13 @@
   <div class="overlay" id="overlay-debo-form">
     <div class="sheet sheet-wrap">
       <button class="close" onclick="cerrarModal('overlay-debo-form')">✕</button>
-      <h3>Nueva deuda</h3>
-      <div class="row-input" style="flex-direction:column; align-items:stretch; gap:6px;">
-        <label>¿A quién le debés / por qué?</label>
-        <input type="text" id="debo-concepto" placeholder="Ej: Papá, Pasamano octubre, Tío..." style="width:100%; box-sizing:border-box; padding:8px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--bg); color:var(--text);" autocomplete="off">
-      </div>
-      <div class="row-input">
-        <label>Monto</label>
-        <div><span class="prefix">$</span><input type="text" inputmode="numeric" id="debo-monto" oninput="formatMiles(this)" style="width:140px; padding:8px; border:1px solid var(--border); border-radius:8px; font-size:14px; text-align:left; background:var(--bg); color:var(--text);" autocomplete="off"></div>
-      </div>
-      <div class="row-input" style="flex-direction:column; align-items:stretch; gap:6px;">
-        <label>Vence (opcional)</label>
-        <input type="month" id="debo-vence" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--bg); color:var(--text);">
-      </div>
-      <button class="btn btn-gold btn-block" style="margin-top:14px;" onclick="confirmarDebo()">Guardar deuda</button>
+      <h3>Una deuda mía</h3>
+      <div class="monto-grande"><span>$</span><input type="text" inputmode="numeric" id="debo-monto" oninput="formatMiles(this)" autocomplete="off" aria-label="Monto"></div>
+      <label class="campo-label" for="debo-concepto">A quién le debo</label>
+      <input type="text" class="campo-simple" id="debo-concepto" autocomplete="off">
+      <label class="campo-label" for="debo-vence">Vence (opcional)</label>
+      <input type="month" class="campo-simple" id="debo-vence">
+      <button class="btn btn-gold btn-block" style="margin-top:16px;" onclick="confirmarDebo()">Guardar</button>
     </div>
   </div>
 

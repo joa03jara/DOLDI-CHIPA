@@ -754,7 +754,7 @@ function renderBottomNav() {
     item('pedidos', 'Pedidos', TABS_INFO.pedidos.icono, "irATab('pedidos')") +
     `<div class="bottom-nav-centro"><button class="bottom-nav-fab" onclick="mostrarOverlay('overlay-agregar')" aria-label="Agregar">${svg('<path d="M12 5v14M5 12h14"/>')}</button></div>` +
     item('graficos', 'Gráficos', '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>', "irATab('remis')") +
-    item('mas', 'Más', '<path d="M4 6h16M4 12h16M4 18h16"/>', "irATab('mas')");
+    item('mas', 'Más', '<path d="M4 6h16M4 12h16M4 18h16"/>', activaId === 'mas' ? "irATab('inicio')" : "irATab('mas')");
 }
 
 function toggleAccesoRapido(id) {
@@ -1756,13 +1756,12 @@ let remisMovCategoria = 'insumos'; // 'insumos' o 'personal' — ya no se regist
 
 function abrirRemisMov(categoria) {
   remisMovCategoria = categoria;
-  document.getElementById('remis-mov-title').textContent = categoria === 'insumos' ? 'Registrar gasto de insumos' : categoria === 'delivery' ? 'Registrar gasto de delivery' : 'Registrar gasto personal';
+  document.getElementById('remis-mov-title').textContent = categoria === 'insumos' ? 'Gasto de insumos' : categoria === 'delivery' ? 'Gasto de delivery' : 'Gasto personal';
   document.getElementById('remis-mov-btn').className = 'btn btn-block ' + (categoria === 'insumos' ? 'btn-rust' : categoria === 'delivery' ? 'btn-green' : 'btn-gold');
   document.getElementById('remis-mov-monto').value = '';
   document.getElementById('remis-mov-monto').style.borderColor = 'var(--border)';
   document.getElementById('remis-mov-concepto').value = '';
   document.getElementById('remis-mov-concepto').style.borderColor = 'var(--border)';
-  document.getElementById('remis-mov-concepto').placeholder = categoria === 'insumos' ? 'Ej: Harina, queso, bolsas...' : categoria === 'delivery' ? 'Ej: Pago del día, nafta de la moto...' : 'Ej: Nafta, sándwich, gaseosa...';
   mostrarOverlay('overlay-remis-mov');
 }
 async function confirmarRemisMov() {
