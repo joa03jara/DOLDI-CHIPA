@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261012b">
+  <link rel="stylesheet" href="styles.css?v=20261017a">
 </head>
 
 <body>
@@ -41,12 +41,34 @@
   </header>
 
   <main>
+    <button class="back-link" id="backBar" onclick="irATab('mas')" style="display:none;">‹ Más</button>
 
     <!-- VENDER -->
     <!-- PEDIDOS (única pantalla para vender: ahora o para armar después) -->
-    <section class="tab-panel active" id="tab-pedidos">
+    <!-- INICIO -->
+    <section class="tab-panel active" id="tab-inicio">
+      <div class="mes-selector">
+        <button onclick="moverMesInicio(-1)" aria-label="Mes anterior">‹</button>
+        <span id="inicio-mes-label">Mes</span>
+        <button id="inicio-mes-sig" onclick="moverMesInicio(1)" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="resumen-3">
+        <div><div class="lbl">Vendiste</div><div class="num verde" id="inicio-vendiste">$0</div></div>
+        <div><div class="lbl">Gastos</div><div class="num rojo" id="inicio-gastos">$0</div></div>
+        <div><div class="lbl">Caja</div><div class="num" id="inicio-caja">$0</div></div>
+      </div>
+      <div class="avisos" id="inicio-avisos"></div>
+      <div id="inicio-lista"></div>
+    </section>
+
+    <!-- MÁS -->
+    <section class="tab-panel" id="tab-mas">
+      <div class="section-title">Más</div>
+      <div class="card mas-card" id="mas-lista"></div>
+    </section>
+
+    <section class="tab-panel" id="tab-pedidos">
       <div class="section-title">Pedidos</div>
-      <p class="muted solo-dueno" style="margin-top:-8px; margin-bottom:14px;">Anotá el pedido y elegí si lo vendés ahora mismo o si lo dejás en espera para armarlo después.</p>
       <button class="btn btn-gold btn-block solo-dueno" onclick="abrirPedidoForm()">+ Nuevo pedido</button>
       <div class="card solo-dueno" id="resumen-produccion-card" style="margin-top:14px; display:none;">
         <h2>Para producir (pedidos en espera)</h2>
@@ -71,19 +93,13 @@
 
     <!-- REMIS -->
     <section class="tab-panel" id="tab-remis">
-      <div class="section-title">Gastos</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Insumos: lo que comprás para producir (harina, queso, bolsas). Personal: lo que gastás vos, sin relación con la producción. Delivery: lo que le pagás al repartidor y la nafta.</p>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px;">
-        <button class="btn btn-rust btn-block" style="padding-left:6px; padding-right:6px;" onclick="abrirRemisMov('insumos')">+ Insumos</button>
-        <button class="btn btn-gold btn-block" style="padding-left:6px; padding-right:6px;" onclick="abrirRemisMov('personal')">+ Personal</button>
-        <button class="btn btn-green btn-block" style="padding-left:6px; padding-right:6px;" onclick="abrirRemisMov('delivery')">+ Delivery</button>
-      </div>
+      <div class="segmented grafico-toggle"><button class="active" onclick="irATab('remis')">Gastos</button><button onclick="irATab('ventas')">Ventas</button></div>
       <div class="tabs-underline">
-        <button class="active" data-periodo="dia" onclick="cambiarPeriodoGastos('dia')">Día</button>
+        <button data-periodo="dia" onclick="cambiarPeriodoGastos('dia')">Día</button>
         <button data-periodo="semana" onclick="cambiarPeriodoGastos('semana')">Semana</button>
-        <button data-periodo="mes" onclick="cambiarPeriodoGastos('mes')">Mes</button>
+        <button class="active" data-periodo="mes" onclick="cambiarPeriodoGastos('mes')">Mes</button>
       </div>
-      <div id="gastos-mes-navegador" style="display:none; align-items:center; justify-content:center; gap:14px; margin:0 0 14px;">
+      <div id="gastos-mes-navegador" style="display:flex; align-items:center; justify-content:center; gap:14px; margin:0 0 14px;">
         <button class="btn btn-ghost btn-sm" onclick="moverMesGastos(-1)" style="padding:6px 12px; font-size:16px;">‹</button>
         <span id="gastos-mes-navegador-label" style="font-weight:700; font-size:14px; min-width:150px; text-align:center;"></span>
         <button class="btn btn-ghost btn-sm" id="gastos-mes-navegador-siguiente" onclick="moverMesGastos(1)" style="padding:6px 12px; font-size:16px;">›</button>
@@ -107,27 +123,27 @@
         </div>
       </div>
 
-      <div class="section-title clickeable" style="margin-top:26px; font-size:18px;" id="remis-insumos-header" onclick="toggleRemisSeccion('insumos')">
+      <div class="section-title clickeable abierto" style="margin-top:18px; font-size:18px;" id="remis-insumos-header" onclick="toggleRemisSeccion('insumos')">
         <span>Historial de Producción</span>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
       </div>
-      <div class="card" id="remis-insumos-wrap" style="display:none;">
+      <div class="card" id="remis-insumos-wrap" style="display:block;">
         <div id="remis-list-insumos"></div>
       </div>
 
-      <div class="section-title clickeable" style="margin-top:18px; font-size:18px;" id="remis-personal-header" onclick="toggleRemisSeccion('personal')">
+      <div class="section-title clickeable abierto" style="margin-top:18px; font-size:18px;" id="remis-personal-header" onclick="toggleRemisSeccion('personal')">
         <span>Historial Personal</span>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
       </div>
-      <div class="card" id="remis-personal-wrap" style="display:none;">
+      <div class="card" id="remis-personal-wrap" style="display:block;">
         <div id="remis-list-personal"></div>
       </div>
 
-      <div class="section-title clickeable" style="margin-top:18px; font-size:18px;" id="remis-delivery-header" onclick="toggleRemisSeccion('delivery')">
+      <div class="section-title clickeable abierto" style="margin-top:18px; font-size:18px;" id="remis-delivery-header" onclick="toggleRemisSeccion('delivery')">
         <span>Historial Delivery</span>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
       </div>
-      <div class="card" id="remis-delivery-wrap" style="display:none;">
+      <div class="card" id="remis-delivery-wrap" style="display:block;">
         <div id="remis-list-delivery"></div>
       </div>
     </section>
@@ -135,7 +151,6 @@
     <!-- CAJA -->
     <section class="tab-panel" id="tab-caja">
       <div class="section-title">Caja</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Cuánta plata tenés en mano ahora mismo, en total. Se suma sola con cada venta y se resta con los gastos que cargues en Gastos.</p>
       <div class="total-banner">
         <div class="big" id="caja-total">$0</div>
         <div class="lbl">Total en caja</div>
@@ -146,7 +161,6 @@
     <!-- PRODUCTOS -->
     <section class="tab-panel" id="tab-productos">
       <div class="section-title">Productos</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Creá, editá o borrá los productos que vendés. Después cargá el stock y el precio en sus pestañas.</p>
       <button class="btn btn-gold btn-block" onclick="abrirProductoForm()">+ Nuevo producto</button>
       <div class="card" style="margin-top:14px;">
         <div id="productos-lista"></div>
@@ -208,14 +222,14 @@
 
     <!-- VENTAS -->
     <section class="tab-panel" id="tab-ventas">
-      <div class="section-title">Ventas</div>
+      <div class="segmented grafico-toggle"><button onclick="irATab('remis')">Gastos</button><button class="active" onclick="irATab('ventas')">Ventas</button></div>
 
       <div class="tabs-underline">
-        <button class="active" data-periodo="dia" onclick="cambiarPeriodoVentas('dia')">Día</button>
+        <button data-periodo="dia" onclick="cambiarPeriodoVentas('dia')">Día</button>
         <button data-periodo="semana" onclick="cambiarPeriodoVentas('semana')">Semana</button>
-        <button data-periodo="mes" onclick="cambiarPeriodoVentas('mes')">Mes</button>
+        <button class="active" data-periodo="mes" onclick="cambiarPeriodoVentas('mes')">Mes</button>
       </div>
-      <div id="mes-navegador" style="display:none; align-items:center; justify-content:center; gap:14px; margin:0 0 14px;">
+      <div id="mes-navegador" style="display:flex; align-items:center; justify-content:center; gap:14px; margin:0 0 14px;">
         <button class="btn btn-ghost btn-sm" onclick="moverMesVentas(-1)" style="padding:6px 12px; font-size:16px;">‹</button>
         <span id="mes-navegador-label" style="font-weight:700; font-size:14px; min-width:150px; text-align:center;"></span>
         <button class="btn btn-ghost btn-sm" id="mes-navegador-siguiente" onclick="moverMesVentas(1)" style="padding:6px 12px; font-size:16px;">›</button>
@@ -249,11 +263,11 @@
         </div>
       </div>
 
-      <div class="section-title clickeable" style="margin-top:18px; font-size:18px;" id="btn-por-producto" onclick="toggleVentasPorProducto()">
+      <div class="section-title clickeable abierto" style="margin-top:18px; font-size:18px;" id="btn-por-producto" onclick="toggleVentasPorProducto()">
         <span>Vendido por producto</span>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
       </div>
-      <div id="ventas-resumen" class="card" style="display:none;"></div>
+      <div id="ventas-resumen" class="card" style="display:block;"></div>
 
       <div class="section-title clickeable" style="margin-top:26px; font-size:18px;" id="evolucion-header" onclick="toggleEvolucion()">
         <span>Evolución</span>
@@ -267,7 +281,7 @@
     <!-- DEBE (quién me debe plata) -->
     <section class="tab-panel" id="tab-debe">
       <div class="section-title">Debe</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Pedidos que entregaste pero todavía no te pagaron. Ordenados del más viejo al más nuevo.</p>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Pedidos entregados que todavía no te pagaron.</p>
       <div class="total-banner">
         <div class="big" id="debe-total">$0</div>
         <div class="lbl">Total que te deben</div>
@@ -278,7 +292,7 @@
     <!-- DEBO (plata que vos debés a otros) -->
     <section class="tab-panel" id="tab-debo">
       <div class="section-title">Debo</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Anotá lo que vos le debés a otras personas (pasamano, familia, etc.). Es solo una lista, no toca la Caja ni los Gastos.</p>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Lo que vos debés. Es solo una lista: no toca la Caja ni los Gastos.</p>
       <button class="btn btn-gold btn-block" onclick="abrirDeboForm()">+ Nueva deuda</button>
       <div class="total-banner" style="margin-top:14px;">
         <div class="big" id="debo-total">$0</div>
@@ -353,11 +367,6 @@
     <!-- CONFIGURACION -->
     <section class="tab-panel" id="tab-config">
       <div class="section-title">Configuración</div>
-      <div class="card">
-        <h2>Accesos rápidos (barra de abajo)</h2>
-        <p class="muted" style="margin-top:-4px;">Elegí hasta 4 secciones para tenerlas siempre a mano, sin abrir el menú. Tocá para marcar o desmarcar.</p>
-        <div id="accesos-rapidos-lista" style="margin-top:10px;"></div>
-      </div>
       <div class="card">
         <h2>Modo repartidor</h2>
         <p class="muted" style="margin-top:-4px;">Para el celular de quien hace el delivery: solo ve Pedidos (con ubicación y cobro) y Clientes (puntos). No ve ventas, gastos, caja ni configuración. Para salir del modo hace falta el PIN que elijas acá.</p>
@@ -550,6 +559,36 @@
       </div>
 
       <button class="btn btn-green btn-block" style="margin-top:10px;" id="btn-confirmar-pedido" onclick="confirmarVenta()" disabled>Confirmar pedido</button>
+    </div>
+  </div>
+
+  <!-- AGREGAR RÁPIDO (botón +) -->
+  <div class="overlay" id="overlay-agregar">
+    <div class="sheet sheet-wrap">
+      <button class="close" onclick="cerrarModal('overlay-agregar')">✕</button>
+      <h3>¿Qué querés anotar?</h3>
+      <div class="agregar-grid">
+        <button class="agregar-item" onclick="agregarRapido('pedido')">
+          <span class="ag-ico" style="background:var(--green-soft); color:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v1h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1z"/><path d="M9 11h6M9 15h6M9 7h2"/></svg></span>
+          <span>Pedido o venta</span>
+        </button>
+        <button class="agregar-item" onclick="agregarRapido('insumos')">
+          <span class="ag-ico" style="background:var(--red-soft); color:var(--red);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg></span>
+          <span>Gasto de insumos</span>
+        </button>
+        <button class="agregar-item" onclick="agregarRapido('personal')">
+          <span class="ag-ico" style="background:var(--orange-soft); color:var(--orange-dark);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="13" r="1.3" fill="currentColor" stroke="none"/></svg></span>
+          <span>Gasto personal</span>
+        </button>
+        <button class="agregar-item" onclick="agregarRapido('delivery')">
+          <span class="ag-ico" style="background:rgba(59,130,196,0.16); color:#3b82c4;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11.5l1.3-4A2 2 0 0 1 8.2 6.2h7.6a2 2 0 0 1 1.9 1.3l1.3 4"/><rect x="2.7" y="11.5" width="18.6" height="5.2" rx="1.6"/><circle cx="7.3" cy="18.7" r="1.6"/><circle cx="16.7" cy="18.7" r="1.6"/></svg></span>
+          <span>Gasto de delivery</span>
+        </button>
+        <button class="agregar-item" onclick="agregarRapido('debo')">
+          <span class="ag-ico" style="background:rgba(142,91,208,0.16); color:#8e5bd0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 9V7a4 4 0 0 0-8 0v2"/><rect x="5" y="9" width="14" height="12" rx="2"/><path d="M12 14v3"/></svg></span>
+          <span>Una deuda mía</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -816,7 +855,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261012b"></script>
+  <script src="script.js?v=20261017a"></script>
 </body>
 
 </html>

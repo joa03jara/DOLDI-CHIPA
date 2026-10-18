@@ -635,6 +635,8 @@ function toggleAccordion(bodyId, group) {
 /* ================= DRAWER ================= */
 function toggleDrawer() {
   if (esModoRepartidor()) return;
+  irATab('mas');
+  return;
   document.getElementById('drawer').classList.add('show');
   document.getElementById('drawerOverlay').classList.add('show');
   const nav = document.getElementById('bottomNav');
@@ -735,32 +737,24 @@ function accesosRapidosGuardados() {
 function renderBottomNav() {
   const nav = document.getElementById('bottomNav');
   if (!nav) return;
-  const repartidor = esModoRepartidor();
-  const elegidos = repartidor ? TABS_REPARTIDOR : accesosRapidosGuardados();
   const activa = document.querySelector('.tab-panel.active');
   const activaId = activa ? activa.id.replace('tab-', '') : '';
+  const repartidor = esModoRepartidor();
+  const grupo = repartidor ? activaId : ({ inicio: 'inicio', pedidos: 'pedidos', remis: 'graficos', ventas: 'graficos' }[activaId] || 'mas');
+  const svg = ic => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>`;
+  const item = (key, label, ic, accion) => `<button class="bottom-nav-item ${grupo === key ? 'active' : ''}" onclick="${accion}">${svg(ic)}<span>${label}</span></button>`;
 
-  let html = elegidos.map(id => {
-    const info = TABS_INFO[id];
-    if (!info) return '';
-    return `<button class="bottom-nav-item ${activaId === id ? 'active' : ''}" onclick="irATab('${id}')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${info.icono}</svg>
-      <span>${info.label}</span>
-    </button>`;
-  }).join('');
-
-  if (!repartidor) html += `<button class="bottom-nav-item ${elegidos.includes(activaId) ? '' : 'active'}" onclick="toggleDrawer()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    <span>Más</span>
-  </button>`;
-
-  nav.innerHTML = html;
-
-  // Las 4 que ya están abajo no hace falta repetirlas también en el menú
-  // lateral — ahí solo quedan las que NO elegiste para la barra rápida.
-  document.querySelectorAll('.drawer-item[data-tab]').forEach(btn => {
-    btn.style.display = elegidos.includes(btn.dataset.tab) ? 'none' : 'flex';
-  });
+  if (repartidor) {
+    nav.innerHTML = item('pedidos', 'Pedidos', TABS_INFO.pedidos.icono, "irATab('pedidos')") +
+      item('clientes', 'Clientes', TABS_INFO.clientes.icono, "irATab('clientes')");
+    return;
+  }
+  nav.innerHTML =
+    item('inicio', 'Inicio', '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>', "irATab('inicio')") +
+    item('pedidos', 'Pedidos', TABS_INFO.pedidos.icono, "irATab('pedidos')") +
+    `<div class="bottom-nav-centro"><button class="bottom-nav-fab" onclick="mostrarOverlay('overlay-agregar')" aria-label="Agregar">${svg('<path d="M12 5v14M5 12h14"/>')}</button></div>` +
+    item('graficos', 'Gráficos', '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>', "irATab('remis')") +
+    item('mas', 'Más', '<path d="M4 6h16M4 12h16M4 18h16"/>', "irATab('mas')");
 }
 
 function toggleAccesoRapido(id) {
@@ -802,10 +796,17 @@ function irATab(name) {
   document.querySelectorAll('.drawer-item').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   closeDrawer();
   renderBottomNav();
+  // Flecha "‹ Más" para volver desde las secciones secundarias
+  const secundarias = ['caja', 'stock', 'productos', 'precios', 'debe', 'debo', 'clientes', 'config'];
+  const back = document.getElementById('backBar');
+  if (back) back.style.display = (!esModoRepartidor() && secundarias.includes(name)) ? 'block' : 'none';
+  window.scrollTo(0, 0);
 
   // Al entrar a la pestaña, refrescar con los datos realmente guardados
   // (descarta cualquier texto escrito pero no guardado).
-  if (name === 'precios') renderPrecios();
+  if (name === 'inicio') renderInicio();
+  else if (name === 'mas') renderMas();
+  else if (name === 'precios') renderPrecios();
   else if (name === 'stock') renderStock();
   else if (name === 'productos') renderProductosLista();
   else if (name === 'pedidos') renderPedidos();
@@ -1181,7 +1182,7 @@ async function guardarPrecios() {
   if (!ok) showToast('⚠️ Los precios no llegaron a guardarse en la nube, revisalos');
 }
 
-let periodoVentas = 'dia';
+let periodoVentas = 'mes';
 let mesOffsetVentas = 0; // 0 = mes actual, -1 = mes anterior, -2 = dos meses atrás, etc.
 let localidadFiltroVentas = 'todas'; // 'todas', 'Tartagal' o 'Mosconi'
 
@@ -1425,7 +1426,7 @@ function filtrarPorRango(list, rango) {
 }
 
 /* ================= REMIS (Gastos) ================= */
-let periodoGastos = 'dia';
+let periodoGastos = 'mes';
 let mesOffsetGastos = 0; // 0 = mes actual, -1 = mes anterior, etc. (independiente del de Ventas)
 
 function cambiarPeriodoGastos(p) {
@@ -3563,6 +3564,157 @@ function toggleTheme() {
   applyTheme(current === 'dark' ? 'light' : 'dark');
 }
 
+/* ================= INICIO (resumen del mes + lista por día) ================= */
+let mesOffsetInicio = 0;
+
+function moverMesInicio(delta) {
+  const nuevo = mesOffsetInicio + delta;
+  if (nuevo > 0) return;
+  mesOffsetInicio = nuevo;
+  renderInicio();
+}
+
+function renderInicio() {
+  const wrap = document.getElementById('inicio-lista');
+  if (!wrap) return;
+  const ref = new Date();
+  ref.setDate(1);
+  ref.setMonth(ref.getMonth() + mesOffsetInicio);
+  const r = claveYEtiquetaPeriodo(ref.getTime(), 'mes');
+  const nombreMes = ref.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  document.getElementById('inicio-mes-label').textContent = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
+  document.getElementById('inicio-mes-sig').style.opacity = mesOffsetInicio === 0 ? '0.3' : '1';
+
+  const ventas = STATE.ventas.filter(v => v.ts >= r.inicio && v.ts < r.fin);
+  const gastos = STATE.remis.filter(m => m.ts >= r.inicio && m.ts < r.fin);
+  const totalVend = ventas.reduce((s, v) => s + v.monto, 0);
+  const totalGast = gastos.reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
+  document.getElementById('inicio-vendiste').textContent = fmtMoney(totalVend);
+  document.getElementById('inicio-gastos').textContent = fmtMoney(totalGast);
+  document.getElementById('inicio-caja').textContent = fmtMoney(STATE.caja.total || 0);
+
+  // Avisos rápidos (solo los que tienen algo)
+  const meDeben = STATE.ventas.filter(v => v.pagado === false).reduce((s, v) => s + v.monto, 0);
+  const debo = (STATE.debo || []).reduce((s, d) => s + d.monto, 0);
+  const enEspera = STATE.pedidos.filter(p => p.estado === 'pendiente').length;
+  let avisos = '';
+  if (enEspera > 0) avisos += `<button class="aviso" onclick="irATab('pedidos')">📋 ${enEspera} ${enEspera === 1 ? 'pedido' : 'pedidos'} en espera</button>`;
+  if (meDeben > 0) avisos += `<button class="aviso" onclick="irATab('debe')">⏳ Te deben ${fmtMoney(meDeben)}</button>`;
+  if (debo > 0) avisos += `<button class="aviso" onclick="irATab('debo')">🔒 Debés ${fmtMoney(debo)}</button>`;
+  document.getElementById('inicio-avisos').innerHTML = avisos;
+
+  // Movimientos: ventas agrupadas por pedido + gastos, todo junto y por día
+  const movs = [];
+  agruparVentasPorPedido(ventas).forEach(sg => {
+    const ped = sg.pedidoId ? STATE.pedidos.find(p => p.id === sg.pedidoId) : null;
+    const nombre = (ped && ped.cliente && ped.cliente.toLowerCase() !== 'sin nombre') ? ped.cliente : (sg.items[0].clienteNombre || 'Venta');
+    const detalle = sg.items.map(i => {
+      const pn = (STATE.productos[i.prod] && STATE.productos[i.prod].label) || i.prod;
+      return i.qtyLabel ? (i.qtyLabel + ' de ' + pn) : pn;
+    }).join(', ');
+    movs.push({ tipo: 'venta', ts: sg.ts, titulo: nombre, detalle, monto: sg.monto, debe: sg.items[0].pagado === false });
+  });
+  gastos.forEach(m => {
+    const cat = m.categoria === 'insumos' ? 'Producción' : m.categoria === 'delivery' ? 'Delivery' : m.categoria === 'personal' ? 'Personal' : 'Gasto';
+    movs.push({ tipo: m.tipo === 'ingreso' ? 'ingreso' : ('gasto-' + (m.categoria || 'viejo')), ts: m.ts, titulo: m.concepto || cat, detalle: cat, monto: m.monto });
+  });
+  if (movs.length === 0) {
+    wrap.innerHTML = '<div class="empty">Todavía no hay movimientos este mes.<br>Tocá el botón <b>+</b> para anotar el primero.</div>';
+    return;
+  }
+  movs.sort((a, b) => b.ts - a.ts);
+
+  const estilos = {
+    'venta': { bg: 'var(--green-soft)', fg: 'var(--green)', ic: TABS_INFO.pedidos.icono },
+    'gasto-insumos': { bg: 'var(--red-soft)', fg: 'var(--red)', ic: TABS_INFO.productos.icono },
+    'gasto-personal': { bg: 'var(--orange-soft)', fg: 'var(--orange-dark)', ic: TABS_INFO.remis.icono },
+    'gasto-delivery': { bg: 'rgba(59,130,196,0.16)', fg: '#3b82c4', ic: '<path d="M5 11.5l1.3-4A2 2 0 0 1 8.2 6.2h7.6a2 2 0 0 1 1.9 1.3l1.3 4"/><rect x="2.7" y="11.5" width="18.6" height="5.2" rx="1.6"/><circle cx="7.3" cy="18.7" r="1.6"/><circle cx="16.7" cy="18.7" r="1.6"/>' },
+    'gasto-viejo': { bg: 'var(--border)', fg: 'var(--text-2)', ic: TABS_INFO.remis.icono },
+    'ingreso': { bg: 'var(--green-soft)', fg: 'var(--green)', ic: TABS_INFO.caja.icono }
+  };
+  const diaClave = ts => { const d = new Date(ts); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); };
+  const dias = [];
+  const porDia = {};
+  movs.forEach(m => {
+    const k = diaClave(m.ts);
+    if (!porDia[k]) { porDia[k] = { ts: m.ts, movs: [], vend: 0, gast: 0 }; dias.push(porDia[k]); }
+    porDia[k].movs.push(m);
+    if (m.tipo === 'venta') porDia[k].vend += m.monto;
+    else if (m.tipo === 'ingreso') porDia[k].gast -= m.monto;
+    else porDia[k].gast += m.monto;
+  });
+  wrap.innerHTML = dias.map(d => {
+    const fecha = new Date(d.ts);
+    const dia = fecha.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }).replace('.', '');
+    const sem = fecha.toLocaleDateString('es-AR', { weekday: 'long' });
+    const totales = [d.vend ? `<span style="color:var(--green);">+${fmtMoney(d.vend)}</span>` : '', d.gast ? `<span style="color:var(--red);">−${fmtMoney(d.gast)}</span>` : ''].filter(Boolean).join(' &nbsp; ');
+    const filas = d.movs.map(m => {
+      const e = estilos[m.tipo] || estilos['gasto-viejo'];
+      const esVenta = m.tipo === 'venta' || m.tipo === 'ingreso';
+      const hora = new Date(m.ts).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      return `<div class="mov-row">
+        <div class="mov-ico" style="background:${e.bg}; color:${e.fg};"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${e.ic}</svg></div>
+        <div class="mov-info"><div class="mov-t">${m.titulo}${m.debe ? ' <span class="mov-debe">Debe</span>' : ''}</div><div class="mov-d">${hora} · ${m.detalle}</div></div>
+        <div class="mov-m" style="color:${esVenta ? 'var(--green)' : 'var(--red)'};">${esVenta ? '+' : '−'}${fmtMoney(m.monto)}</div>
+      </div>`;
+    }).join('');
+    return `<div class="dia-bloque"><div class="dia-head"><span><b>${dia}</b> · ${sem.charAt(0).toUpperCase() + sem.slice(1)}</span><span class="dia-tot">${totales}</span></div>${filas}</div>`;
+  }).join('');
+}
+
+/* ================= MÁS (menú simple) ================= */
+function renderMas() {
+  const wrap = document.getElementById('mas-lista');
+  if (!wrap) return;
+  const meDeben = STATE.ventas.filter(v => v.pagado === false).reduce((s, v) => s + v.monto, 0);
+  const debo = (STATE.debo || []).reduce((s, d) => s + d.monto, 0);
+  const filas = [
+    ['caja', 'Caja', fmtMoney(STATE.caja.total || 0)],
+    ['debe', 'Me deben', meDeben ? fmtMoney(meDeben) : ''],
+    ['debo', 'Yo debo', debo ? fmtMoney(debo) : ''],
+    ['clientes', 'Clientes y puntos', ''],
+    ['stock', 'Stock', ''],
+    ['productos', 'Productos', ''],
+    ['precios', 'Precios', ''],
+    ['config', 'Configuración', '']
+  ];
+  wrap.innerHTML = filas.map(([id, label, valor]) => `<button class="mas-row" onclick="irATab('${id}')">
+    <span class="mas-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${(TABS_INFO[id] || {}).icono || ''}</svg></span>
+    <span class="mas-label">${label}</span>
+    <span class="mas-valor">${valor}</span>
+    <svg class="mas-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+  </button>`).join('');
+}
+
+/* ================= BOTÓN + (carga rápida) ================= */
+function agregarRapido(tipo) {
+  cerrarModal('overlay-agregar');
+  if (tipo === 'pedido') abrirPedidoForm();
+  else if (tipo === 'debo') abrirDeboForm();
+  else abrirRemisMov(tipo);
+}
+
+// Cada vez que cambian ventas, gastos, caja, pedidos o deudas, se refresca
+// también Inicio y el menú Más (agrupado para no repetir trabajo).
+let _renderInicioPendiente = false;
+function programarRenderInicio() {
+  if (_renderInicioPendiente) return;
+  _renderInicioPendiente = true;
+  setTimeout(() => {
+    _renderInicioPendiente = false;
+    try { renderInicio(); renderMas(); } catch (e) {}
+  }, 0);
+}
+['renderVentas', 'renderRemis', 'renderCaja', 'renderDebe', 'renderDebo', 'renderPedidos'].forEach(nombre => {
+  const original = window[nombre];
+  if (typeof original !== 'function') return;
+  window[nombre] = function () {
+    const res = original.apply(this, arguments);
+    programarRenderInicio();
+    return res;
+  };
+});
+
 /* ================= INIT ================= */
 function iniciarApp() {
   let savedTheme = 'light';
@@ -3572,6 +3724,8 @@ function iniciarApp() {
   applyTheme(savedTheme);
   aplicarModoRepartidor();
   renderAll();
+  if (esModoRepartidor()) irATab('pedidos');
+  renderInicio();
   renderBottomNav();
   const cfg = getSavedFirebaseConfig();
   if (cfg) {
