@@ -1349,3 +1349,12 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .agregar-item:active .ag-ico { transform: scale(0.94); }
 
 .grafico-toggle { margin-bottom: 12px; }
+
+/* ===== Formularios simples (gastos y deuda) ===== */
+.monto-grande { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin: 18px 0 14px; color: var(--text); }
+.monto-grande span { font-size: 28px; font-weight: 700; color: var(--text-2); }
+.monto-grande input { width: 60%; border: none; border-bottom: 2px solid var(--border); background: transparent; color: var(--text); font-size: 36px; font-weight: 800; text-align: center; padding: 4px 0; outline: none; font-family: inherit; }
+.monto-grande input:focus { border-bottom-color: var(--orange); }
+.campo-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin: 12px 0 4px; }
+.campo-simple { width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; background: var(--bg); color: var(--text); font-family: inherit; }
+.campo-simple:focus { outline: none; border-color: var(--orange); }
