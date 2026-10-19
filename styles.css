@@ -1387,3 +1387,6 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .emoji-cats::-webkit-scrollbar { display: none; }
 .emoji-cats button { flex-shrink: 0; padding: 7px 12px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 13px; font-weight: 600; font-family: inherit; white-space: nowrap; }
 .emoji-cats button.active { background: var(--orange-soft); color: var(--orange-dark); border-color: var(--orange); }
+.emoji-buscar { position: relative; margin-bottom: 8px; }
+.emoji-buscar span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 15px; pointer-events: none; }
+.emoji-buscar input { padding-left: 38px; }

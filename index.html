@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261019f">
+  <link rel="stylesheet" href="styles.css?v=20261019g">
 </head>
 
 <body>
@@ -620,7 +620,8 @@
       <div class="monto-grande"><span>$</span><input type="text" inputmode="numeric" id="remis-mov-monto" oninput="formatMiles(this)" autocomplete="off" aria-label="Monto"></div>
       <label class="campo-label" for="remis-mov-concepto">Gasto</label>
       <input type="text" class="campo-simple" id="remis-mov-concepto" autocomplete="off">
-      <label class="campo-label">Ícono</label>
+      <label class="campo-label" for="gasto-emoji-buscar">Ícono</label>
+      <div class="emoji-buscar"><span>🔍</span><input type="text" id="gasto-emoji-buscar" class="campo-simple" autocomplete="off" aria-label="Buscar ícono" oninput="pintarEmojisGasto()"></div>
       <div class="emoji-cats" id="gasto-emoji-cats"></div>
       <div class="emoji-grid" id="gasto-emoji-grid"></div>
       <button class="btn btn-gold btn-block" style="margin-top:16px;" onclick="confirmarRemisMov()">Guardar</button>
@@ -803,7 +804,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261019f"></script>
+  <script src="script.js?v=20261019g"></script>
 </body>
 
 </html>
