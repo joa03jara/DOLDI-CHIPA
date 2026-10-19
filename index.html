@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261018a">
+  <link rel="stylesheet" href="styles.css?v=20261019a">
 </head>
 
 <body>
@@ -108,44 +108,13 @@
         <div class="big" id="remis-neto">$0</div>
         <div class="lbl" id="remis-neto-label">Total gastado hoy</div>
       </div>
-      <div class="card">
-        <div class="prod-row">
-          <div class="prod-name">Producción</div>
-          <div class="stock-num" id="remis-ingresos" style="color:var(--red);">$0</div>
-        </div>
-        <div class="prod-row">
-          <div class="prod-name">Personal</div>
-          <div class="stock-num" id="remis-gastos" style="color:var(--red);">$0</div>
-        </div>
-        <div class="prod-row">
-          <div class="prod-name">Delivery</div>
-          <div class="stock-num" id="remis-delivery" style="color:var(--red);">$0</div>
-        </div>
-      </div>
+      <div class="card gastos-resumen" id="gastos-resumen"></div>
 
-      <div class="section-title clickeable abierto" style="margin-top:18px; font-size:18px;" id="remis-insumos-header" onclick="toggleRemisSeccion('insumos')">
-        <span>Historial de Producción</span>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+      <div class="cat-chips" id="gastos-chips">
+        <button data-cat="insumos" class="active" onclick="elegirCatGastos('insumos')">Producción</button>
+        <button data-cat="personal" onclick="elegirCatGastos('personal')">Personal</button>
       </div>
-      <div class="card" id="remis-insumos-wrap" style="display:block;">
-        <div id="remis-list-insumos"></div>
-      </div>
-
-      <div class="section-title clickeable abierto" style="margin-top:18px; font-size:18px;" id="remis-personal-header" onclick="toggleRemisSeccion('personal')">
-        <span>Historial Personal</span>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-      </div>
-      <div class="card" id="remis-personal-wrap" style="display:block;">
-        <div id="remis-list-personal"></div>
-      </div>
-
-      <div class="section-title clickeable abierto" style="margin-top:18px; font-size:18px;" id="remis-delivery-header" onclick="toggleRemisSeccion('delivery')">
-        <span>Historial Delivery</span>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-      </div>
-      <div class="card" id="remis-delivery-wrap" style="display:block;">
-        <div id="remis-list-delivery"></div>
-      </div>
+      <div class="card" id="remis-lista"></div>
     </section>
 
     <!-- CAJA -->
@@ -652,10 +621,13 @@
     <div class="sheet sheet-wrap">
       <button class="close" onclick="cerrarModal('overlay-remis-mov')">✕</button>
       <h3 id="remis-mov-title">Gasto</h3>
-      <div class="monto-grande"><span>$</span><input type="text" inputmode="numeric" id="remis-mov-monto" oninput="formatMiles(this)" autocomplete="off" aria-label="Monto"></div>
-      <label class="campo-label" for="remis-mov-concepto">Concepto</label>
-      <input type="text" class="campo-simple" id="remis-mov-concepto" autocomplete="off" aria-label="Concepto">
-      <button class="btn btn-gold btn-block" id="remis-mov-btn" style="margin-top:16px;" onclick="confirmarRemisMov()">Guardar</button>
+      <label class="campo-label" for="remis-mov-lugar">¿Dónde compraste? (opcional)</label>
+      <input type="text" class="campo-simple" id="remis-mov-lugar" autocomplete="off">
+      <div class="items-cab"><span>Producto</span><span>Monto</span></div>
+      <div id="remis-mov-items"></div>
+      <button class="link-agregar" onclick="agregarFilaGasto()">+ Agregar otro producto</button>
+      <div class="total-compra"><span>Total</span><b id="remis-mov-total">$0</b></div>
+      <button class="btn btn-gold btn-block" id="remis-mov-btn" style="margin-top:14px;" onclick="confirmarRemisMov()">Guardar</button>
     </div>
   </div>
 
