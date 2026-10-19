@@ -2234,22 +2234,42 @@ function renderDebo() {
 }
 
 function marcarDeboPagadoUI(id, concepto) {
+  const deuda = STATE.debo.find(d => d.id === id);
+  const monto = deuda ? deuda.monto : 0;
   confirmarAccion(
-    'Sacar de la lista: ' + concepto,
-    'Esto solo lo saca de "Debo". No toca la Caja ni los Gastos.',
+    'Ya pagué: ' + concepto,
+    'Se descuentan ' + fmtMoney(monto) + ' de tu Caja y queda anotado como gasto personal.',
     () => marcarDeboPagadoConfirmado(id)
   );
 }
 
+// Pagar una deuda es plata que sale: se descuenta de la Caja y queda como gasto
+// personal, así Inicio (Gastos y Caja) sigue cuadrando. Se borra de "Debo".
 async function marcarDeboPagadoConfirmado(id) {
   if (!db) {
     showToast('No está conectado a la nube (menú → Configuración)');
     return;
   }
+  const deuda = STATE.debo.find(d => d.id === id);
+  if (!deuda) return;
   try {
-    await db.collection('doldichipa_debo').doc(id).delete();
+    const batch = db.batch();
+    batch.set(db.collection('doldichipa_remis').doc(), {
+      ts: Date.now(),
+      tipo: 'gasto',
+      categoria: 'personal',
+      monto: deuda.monto,
+      concepto: 'Deuda: ' + deuda.concepto,
+      emoji: '💸'
+    });
+    batch.delete(db.collection('doldichipa_debo').doc(id));
+    await batch.commit();
+    STATE.caja.total = (STATE.caja.total || 0) - deuda.monto;
+    renderCaja();
+    showToastExito('Deuda pagada: ' + fmtMoney(deuda.monto) + ' menos en la Caja');
+    await saveCaja();
   } catch (e) {
-    showToast('No se pudo sacar de la lista, probá de nuevo');
+    showToast('No se pudo registrar el pago, probá de nuevo');
   }
 }
 
