@@ -1381,13 +1381,4 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .gasto-prod .gp-fila > span { flex: 1; }
 .gasto-prod .gp-fila b { color: var(--text); }
 .gasto-prod .gp-fila button { background: none; border: none; color: var(--text-3); font-size: 15px; padding: 4px 8px; }
-/* Formulario de gasto con varios productos */
-.items-cab { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text-2); margin: 14px 0 4px; }
-.items-cab span:last-child { width: 38%; }
-.fila-gasto { display: flex; gap: 8px; margin-bottom: 8px; }
-.fila-gasto .campo-simple { padding: 11px 12px; }
-.fila-gasto .campo-simple.g-prod { flex: 1; min-width: 0; }
-.fila-gasto .campo-simple.g-monto { width: 38%; text-align: right; font-weight: 700; }
-.link-agregar { background: none; border: none; color: var(--orange-dark); font-weight: 700; font-size: 14px; padding: 8px 0; font-family: inherit; }
-.total-compra { display: flex; justify-content: space-between; align-items: center; font-size: 15px; padding-top: 10px; border-top: 1px solid var(--border); margin-top: 4px; }
-.total-compra b { font-size: 22px; }
+.gp-emoji { font-size: 20px; margin-right: 8px; }
