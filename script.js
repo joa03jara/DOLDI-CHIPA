@@ -1575,7 +1575,7 @@ function elegirCatGastos(c) {
 }
 
 // Cada producto aparece una sola vez con todo lo comprado en el período
-// sumado; al tocarlo se ven las compras una por una (fecha y lugar).
+// sumado; al tocarlo se ven las compras una por una con su fecha.
 function renderPorConcepto(arr, categoria) {
   if (arr.length === 0) return '<div class="empty">Todavía no hay gastos en este período.</div>';
   const fmtFechaHora = ts => new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
@@ -1598,11 +1598,11 @@ function renderPorConcepto(arr, categoria) {
     const claveEsc = claveUI.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     const abierto = conceptosExpandidos.has(claveUI);
     const detalle = abierto ? `<div class="gp-det">${g.items.map(m => `<div class="gp-fila">
-        <span>${fmtFechaHora(m.ts)}${m.lugar ? ' · ' + m.lugar : ''}</span><b>${fmtMoney(m.monto)}</b>
+        <span>${fmtFechaHora(m.ts)}</span><b>${fmtMoney(m.monto)}</b>
         <button onclick="eliminarRemisUI('${m.id}')" aria-label="Borrar">✕</button></div>`).join('')}</div>` : '';
     return `<div class="gasto-prod">
       <div class="gp-top" onclick="toggleConceptoGasto('${claveEsc}')">
-        <span>${g.nombre} <small>· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</small></span>
+        <span><span class="gp-emoji">${g.items[0].emoji || (categoria === 'insumos' ? '📦' : '🛍️')}</span>${g.nombre} <small>· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</small></span>
         <span>${fmtMoney(g.total)}</span>
       </div>
       <div class="gp-bar"><i style="width:${Math.max(g.total / maximo * 100, 3)}%; background:${color};"></i></div>
@@ -1701,49 +1701,41 @@ async function eliminarRemisSoloHistorialConfirmado(id) {
 
 let remisMovCategoria = 'insumos'; // 'insumos' o 'personal' — ya no se registran ingresos acá
 
+const EMOJIS_GASTO = ['🥛', '🧀', '🧈', '🌾', '🥚', '🍬', '🧂', '🛍️', '⛽', '🚗', '🏍️', '📦', '🛒', '🍔', '☕', '💡', '📱', '👕', '💊', '🏠', '🎁', '🧴', '🔧', '🧾'];
+let gastoEmojiActual = '📦';
+
+function seleccionarEmojiGasto(e) {
+  gastoEmojiActual = e;
+  document.querySelectorAll('#gasto-emoji-grid .emoji-opt').forEach(el => {
+    el.classList.toggle('active', el.dataset.e === e);
+  });
+}
+
 function abrirRemisMov(categoria) {
   remisMovCategoria = categoria;
   document.getElementById('remis-mov-title').textContent = categoria === 'insumos' ? 'Gasto de insumos' : 'Gasto personal';
-  document.getElementById('remis-mov-btn').className = 'btn btn-block ' + (categoria === 'insumos' ? 'btn-rust' : 'btn-gold');
-  document.getElementById('remis-mov-lugar').value = '';
-  document.getElementById('remis-mov-items').innerHTML = '';
-  agregarFilaGasto();
-  actualizarTotalGasto();
+  document.getElementById('remis-mov-monto').value = '';
+  document.getElementById('remis-mov-monto').style.borderColor = '';
+  document.getElementById('remis-mov-concepto').value = '';
+  document.getElementById('remis-mov-concepto').style.borderColor = 'var(--border)';
+  document.getElementById('gasto-emoji-grid').innerHTML = EMOJIS_GASTO.map(e => `<div class="emoji-opt" data-e="${e}" onclick="seleccionarEmojiGasto('${e}')">${e}</div>`).join('');
+  seleccionarEmojiGasto(categoria === 'insumos' ? '📦' : '🛒');
   mostrarOverlay('overlay-remis-mov');
 }
 
-function agregarFilaGasto() {
-  const fila = document.createElement('div');
-  fila.className = 'fila-gasto';
-  fila.innerHTML = '<input type="text" class="campo-simple g-prod" autocomplete="off" aria-label="Producto">' +
-    '<input type="text" inputmode="numeric" class="campo-simple g-monto" autocomplete="off" aria-label="Monto" oninput="formatMiles(this); actualizarTotalGasto()">';
-  document.getElementById('remis-mov-items').appendChild(fila);
-}
-
-function actualizarTotalGasto() {
-  let total = 0;
-  document.querySelectorAll('#remis-mov-items .g-monto').forEach(i => { total += parseMiles(i.value) || 0; });
-  document.getElementById('remis-mov-total').textContent = fmtMoney(total);
-}
-
 async function confirmarRemisMov() {
-  const lugar = document.getElementById('remis-mov-lugar').value.trim();
-  const items = [];
-  let hayError = false;
-  document.querySelectorAll('#remis-mov-items .fila-gasto').forEach(fila => {
-    const prodInput = fila.querySelector('.g-prod');
-    const montoInput = fila.querySelector('.g-monto');
-    const concepto = prodInput.value.trim();
-    const monto = parseMiles(montoInput.value);
-    const vacia = !concepto && !(monto > 0);
-    const incompleta = !vacia && (!concepto || !(monto > 0));
-    prodInput.style.borderColor = (incompleta && !concepto) ? 'var(--red)' : 'var(--border)';
-    montoInput.style.borderColor = (incompleta && !(monto > 0)) ? 'var(--red)' : 'var(--border)';
-    if (incompleta) hayError = true;
-    else if (!vacia) items.push({ concepto, monto });
-  });
-  if (hayError || items.length === 0) {
-    showToast('Completá el producto y el monto');
+  const montoInput = document.getElementById('remis-mov-monto');
+  const conceptoInput = document.getElementById('remis-mov-concepto');
+  const monto = parseMiles(montoInput.value);
+  const concepto = conceptoInput.value.trim();
+
+  const faltantes = [];
+  if (!monto || monto <= 0) faltantes.push('Monto');
+  if (!concepto) faltantes.push('Gasto');
+  montoInput.style.borderColor = (!monto || monto <= 0) ? 'var(--red)' : '';
+  conceptoInput.style.borderColor = !concepto ? 'var(--red)' : 'var(--border)';
+  if (faltantes.length > 0) {
+    showToast('Completá: ' + faltantes.join(', '));
     return;
   }
   if (!db) {
@@ -1752,26 +1744,27 @@ async function confirmarRemisMov() {
   }
 
   const categoriaAlMomento = remisMovCategoria;
-  const total = items.reduce((s, i) => s + i.monto, 0);
-  const ts = Date.now();
-  const compraId = 'c' + ts;
+  const emoji = gastoEmojiActual;
 
   // Mostramos todo resuelto de inmediato, sin esperar la confirmación de
   // Firebase, y mandamos el guardado real en paralelo, en segundo plano.
-  STATE.caja.total = (STATE.caja.total || 0) - total;
+  STATE.caja.total = (STATE.caja.total || 0) - monto;
   cerrarModal('overlay-remis-mov');
   showToastExito((categoriaAlMomento === 'insumos' ? 'Gasto de insumos' : 'Gasto personal') + ' registrado');
   renderCaja();
 
   try {
-    const batch = db.batch();
-    items.forEach(it => {
-      const mov = { ts, tipo: 'gasto', categoria: categoriaAlMomento, monto: it.monto, concepto: it.concepto, compraId };
-      if (lugar) mov.lugar = lugar;
-      batch.set(db.collection('doldichipa_remis').doc(), mov);
-    });
-    await batch.commit();
-    await saveCaja();
+    await Promise.all([
+      db.collection('doldichipa_remis').add({
+        ts: Date.now(),
+        tipo: 'gasto',
+        categoria: categoriaAlMomento,
+        monto,
+        concepto,
+        emoji
+      }),
+      saveCaja()
+    ]);
   } catch (e) {
     showToast('⚠️ Este gasto no llegó a guardarse en la nube, revisalo');
   }
@@ -3580,7 +3573,7 @@ function renderInicio() {
   });
   gastos.forEach(m => {
     const cat = (m.categoria === 'insumos' || m.categoria === 'delivery') ? 'Producción' : m.categoria === 'personal' ? 'Personal' : 'Gasto';
-    movs.push({ tipo: m.tipo === 'ingreso' ? 'ingreso' : ('gasto-' + (m.categoria === 'delivery' ? 'insumos' : (m.categoria || 'viejo'))), ts: m.ts, titulo: m.concepto || cat, detalle: cat, monto: m.monto });
+    movs.push({ tipo: m.tipo === 'ingreso' ? 'ingreso' : ('gasto-' + (m.categoria === 'delivery' ? 'insumos' : (m.categoria || 'viejo'))), ts: m.ts, titulo: m.concepto || cat, detalle: cat, monto: m.monto, emoji: m.emoji });
   });
   if (movs.length === 0) {
     wrap.innerHTML = '<div class="empty">Todavía no hay movimientos este mes.<br>Tocá el botón <b>+</b> para anotar el primero.</div>';
@@ -3617,7 +3610,7 @@ function renderInicio() {
       const esVenta = m.tipo === 'venta' || m.tipo === 'ingreso';
       const hora = new Date(m.ts).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
       return `<div class="mov-row">
-        <div class="mov-ico" style="background:${e.bg}; color:${e.fg};"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${e.ic}</svg></div>
+        <div class="mov-ico" style="background:${e.bg}; color:${e.fg};">${m.emoji ? `<span style="font-size:20px; line-height:1;">${m.emoji}</span>` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${e.ic}</svg>`}</div>
         <div class="mov-info"><div class="mov-t">${m.titulo}${m.debe ? ' <span class="mov-debe">Debe</span>' : ''}</div><div class="mov-d">${hora} · ${m.detalle}</div></div>
         <div class="mov-m" style="color:${esVenta ? 'var(--green)' : 'var(--red)'};">${esVenta ? '+' : '−'}${fmtMoney(m.monto)}</div>
       </div>`;
