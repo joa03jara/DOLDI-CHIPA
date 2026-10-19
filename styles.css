@@ -1382,4 +1382,8 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .gasto-prod .gp-fila b { color: var(--text); }
 .gasto-prod .gp-fila button { background: none; border: none; color: var(--text-3); font-size: 15px; padding: 4px 8px; }
 .gp-emoji { font-size: 20px; margin-right: 8px; }
-#gasto-emoji-grid { max-height: 210px; overflow-y: auto; padding-right: 2px; -webkit-overflow-scrolling: touch; }
+#gasto-emoji-grid { max-height: 190px; overflow-y: auto; padding-right: 2px; -webkit-overflow-scrolling: touch; }
+.emoji-cats { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 6px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.emoji-cats::-webkit-scrollbar { display: none; }
+.emoji-cats button { flex-shrink: 0; padding: 7px 12px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 13px; font-weight: 600; font-family: inherit; white-space: nowrap; }
+.emoji-cats button.active { background: var(--orange-soft); color: var(--orange-dark); border-color: var(--orange); }
