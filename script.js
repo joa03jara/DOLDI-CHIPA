@@ -1817,11 +1817,10 @@ function renderResumen() {
   // movimientos viejos sin categoría se siguen respetando para no perder
   // el historial: si eran "ingreso" restan del total gastado, si eran
   // "gasto" suman, igual que siempre.
-  const totalInsumos = remisList.filter(m => m.categoria === 'insumos').reduce((s, m) => s + m.monto, 0);
+  // Delivery ya no es una categoría aparte: lo viejo se cuenta como insumos.
+  const totalInsumos = remisList.filter(m => m.categoria === 'insumos' || m.categoria === 'delivery').reduce((s, m) => s + m.monto, 0);
   const totalPersonal = remisList.filter(m => m.categoria === 'personal').reduce((s, m) => s + m.monto, 0);
   const totalViejo = remisList.filter(m => !m.categoria).reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
-  const totalDeliveryResumen = remisList.filter(m => m.categoria === 'delivery').reduce((s, m) => s + m.monto, 0);
-  document.getElementById('resumen-delivery-detalle').textContent = fmtMoney(totalDeliveryResumen);
   document.getElementById('resumen-chipa').textContent = fmtMoney(totalChipa);
   document.getElementById('resumen-insumos-detalle').textContent = fmtMoney(totalInsumos);
   document.getElementById('resumen-personal-detalle').textContent = fmtMoney(totalPersonal + totalViejo);
@@ -1849,7 +1848,7 @@ function renderResumen() {
   } else {
     // En Semana o Mes ya entra tanto lo comprado como lo vendido con eso,
     // así que la resta (ganancia real) tiene sentido.
-    const ganancia = totalChipa - totalInsumos - totalDeliveryResumen;
+    const ganancia = totalChipa - totalInsumos;
     if (gananciaLabelEl) gananciaLabelEl.textContent = 'Ganancia de ' + nombrePeriodo;
     if (gananciaEl) {
       gananciaEl.textContent = fmtMoney(ganancia);
@@ -3580,8 +3579,8 @@ function renderInicio() {
     movs.push({ tipo: 'venta', ts: sg.ts, titulo: nombre, detalle, monto: sg.monto, debe: sg.items[0].pagado === false });
   });
   gastos.forEach(m => {
-    const cat = m.categoria === 'insumos' ? 'Producción' : m.categoria === 'delivery' ? 'Delivery' : m.categoria === 'personal' ? 'Personal' : 'Gasto';
-    movs.push({ tipo: m.tipo === 'ingreso' ? 'ingreso' : ('gasto-' + (m.categoria || 'viejo')), ts: m.ts, titulo: m.concepto || cat, detalle: cat, monto: m.monto });
+    const cat = (m.categoria === 'insumos' || m.categoria === 'delivery') ? 'Producción' : m.categoria === 'personal' ? 'Personal' : 'Gasto';
+    movs.push({ tipo: m.tipo === 'ingreso' ? 'ingreso' : ('gasto-' + (m.categoria === 'delivery' ? 'insumos' : (m.categoria || 'viejo'))), ts: m.ts, titulo: m.concepto || cat, detalle: cat, monto: m.monto });
   });
   if (movs.length === 0) {
     wrap.innerHTML = '<div class="empty">Todavía no hay movimientos este mes.<br>Tocá el botón <b>+</b> para anotar el primero.</div>';
