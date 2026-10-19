@@ -1390,3 +1390,18 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .emoji-buscar { position: relative; margin-bottom: 8px; }
 .emoji-buscar span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 15px; pointer-events: none; }
 .emoji-buscar input { padding-left: 38px; }
+
+/* ===== Ventas: gráfico y productos ===== */
+.venta-prod { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.venta-prod:last-child { border-bottom: none; }
+.venta-prod .vp-top { display: flex; align-items: center; gap: 12px; }
+.venta-prod .gp-bar { height: 7px; border-radius: 4px; background: var(--border); margin-top: 8px; overflow: hidden; }
+.venta-prod .gp-bar i { display: block; height: 100%; border-radius: 4px; }
+.vg-barras { display: flex; align-items: flex-end; gap: 8px; height: 130px; }
+.vg-barras.fino { gap: 2px; }
+.vg-col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; }
+.vg-col i { display: block; width: 100%; border-radius: 5px 5px 0 0; background: var(--orange); min-height: 0; }
+.vg-col i.mejor { background: var(--orange-dark); }
+.vg-col span { font-size: 11px; color: var(--text-2); height: 16px; line-height: 16px; white-space: nowrap; }
+.vg-mejor { margin-top: 10px; font-size: 13px; color: var(--text-2); }
+.vg-mejor b { color: var(--text); }

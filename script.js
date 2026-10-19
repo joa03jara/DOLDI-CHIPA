@@ -1228,22 +1228,6 @@ function moverMesVentas(delta) {
 // para que la pantalla de Ventas no abrume con números.
 // "Evolución" arranca cerrada del todo (ni siquiera se ven los días) y se
 // despliega recién al tocarla.
-function toggleEvolucion() {
-  const wrap = document.getElementById('evolucion-wrap');
-  const header = document.getElementById('evolucion-header');
-  const abierto = wrap.style.display === 'block';
-  wrap.style.display = abierto ? 'none' : 'block';
-  header.classList.toggle('abierto', !abierto);
-}
-
-function toggleVentasPorProducto() {
-  const wrap = document.getElementById('ventas-resumen');
-  const btn = document.getElementById('btn-por-producto');
-  const abierto = wrap.style.display === 'block';
-  wrap.style.display = abierto ? 'none' : 'block';
-  btn.classList.toggle('abierto', !abierto);
-}
-
 // Agrupa ventas por pedido: si un cliente compró varias cosas en el mismo
 // pedido (ej: chipá + factura), aparecen juntas en una sola fila, no una
 // fila por cada producto. La reusan tanto el buscador como el acordeón
@@ -1314,22 +1298,66 @@ function renderVentas() {
   const rangoActual = claveYEtiquetaPeriodo(fechaReferenciaVentas(), periodoVentas);
   let list = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin && (localidadFiltroVentas === 'todas' || v.localidad === localidadFiltroVentas));
   const resumen = document.getElementById('ventas-resumen');
-  let resumenHtml = '';
-  productosOrdenados().forEach(prod => {
-    const p = STATE.productos[prod];
-    const sumQty = list.filter(v => v.prod === prod).reduce((s, v) => s + (v.qty || 0), 0);
-    const sumMonto = list.filter(v => v.prod === prod).reduce((s, v) => s + v.monto, 0);
-    const qtyTexto = fmtCantidad(prod, sumQty);
-    resumenHtml += `<div class="prod-row">
-      <div class="prod-icon">${prodIconHtml(prod)}</div>
-      <div style="flex:1;">
-        <div class="prod-name">${p.label}</div>
-        ${sumQty>0 ? `<span class="qty-pill">${qtyTexto}</span>` : ''}
+  // Solo los productos que se vendieron en el período, del que más vendió al que menos.
+  const filas = productosOrdenados().map(prod => {
+    const delProd = list.filter(v => v.prod === prod);
+    return { prod, sumQty: delProd.reduce((s, v) => s + (v.qty || 0), 0), sumMonto: delProd.reduce((s, v) => s + v.monto, 0) };
+  }).filter(f => f.sumMonto > 0).sort((a, b) => b.sumMonto - a.sumMonto);
+  const maximo = filas.length ? filas[0].sumMonto : 1;
+  resumen.innerHTML = filas.length ? filas.map(f => {
+    const p = STATE.productos[f.prod];
+    return `<div class="venta-prod">
+      <div class="vp-top">
+        <div class="prod-icon">${prodIconHtml(f.prod)}</div>
+        <div style="flex:1;">
+          <div class="prod-name">${p.label}</div>
+          ${f.sumQty > 0 ? `<span class="qty-pill">${fmtCantidad(f.prod, f.sumQty)}</span>` : ''}
+        </div>
+        <div class="stock-num">${fmtMoney(f.sumMonto)}</div>
       </div>
-      <div class="stock-num">${fmtMoney(sumMonto)}</div>
+      <div class="gp-bar"><i style="width:${Math.max(f.sumMonto / maximo * 100, 3)}%; background:var(--orange);"></i></div>
     </div>`;
+  }).join('') : '<div class="empty">Todavía no hay ventas en este período.</div>';
+
+  renderGraficoVentas(list, rangoActual);
+}
+
+// Barras de lo vendido: una por día de la semana (en Semana) o por día del
+// mes (en Mes). En Día no hace falta: es un solo día.
+function renderGraficoVentas(list, rango) {
+  const card = document.getElementById('ventas-grafico');
+  if (!card) return;
+  const titulo = card.previousElementSibling;
+  if (periodoVentas === 'dia') {
+    card.style.display = 'none';
+    if (titulo) titulo.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+  if (titulo) titulo.style.display = '';
+  const DIA = 24 * 60 * 60 * 1000;
+  const dias = Math.round((rango.fin - rango.inicio) / DIA);
+  const totales = new Array(dias).fill(0);
+  list.forEach(v => {
+    const i = Math.floor((v.ts - rango.inicio) / DIA);
+    if (i >= 0 && i < dias) totales[i] += v.monto;
   });
-  resumen.innerHTML = resumenHtml;
+  const max = Math.max.apply(null, totales);
+  if (max <= 0) {
+    card.innerHTML = '<div class="empty">Todavía no hay ventas en este período.</div>';
+    return;
+  }
+  const nombres = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  const iMejor = totales.indexOf(max);
+  const barras = totales.map((t, i) => {
+    const fecha = new Date(rango.inicio + i * DIA);
+    const etiqueta = periodoVentas === 'semana' ? nombres[i] : (i === 0 || (i + 1) % 5 === 0 ? String(fecha.getDate()) : '');
+    return `<div class="vg-col"><i class="${i === iMejor ? 'mejor' : ''}" style="height:${t > 0 ? Math.max(t / max * 100, 4) : 0}%;"></i><span>${etiqueta}</span></div>`;
+  }).join('');
+  const f = new Date(rango.inicio + iMejor * DIA);
+  const nombreMejor = f.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' }).replace('.', '');
+  card.innerHTML = `<div class="vg-barras ${periodoVentas === 'mes' ? 'fino' : ''}">${barras}</div>
+    <div class="vg-mejor">🏆 Mejor día: <b>${nombreMejor.charAt(0).toUpperCase() + nombreMejor.slice(1)}</b> · ${fmtMoney(max)}</div>`;
 }
 
 function eliminarVentaUI(id) {
