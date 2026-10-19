@@ -1701,16 +1701,17 @@ async function eliminarRemisSoloHistorialConfirmado(id) {
 
 let remisMovCategoria = 'insumos'; // 'insumos' o 'personal' — ya no se registran ingresos acá
 
-const EMOJIS_GASTO = [
-  // Ingredientes y comida
-  '🥛', '🧀', '🧈', '🌾', '🥚', '🍬', '🧂', '🍫', '🍯', '🥜', '🍅', '🥕', '🧅', '🥔', '🍎', '🍌', '🍋', '🥩', '🍗', '🐟', '🍞', '🥖', '🥐', '🍪', '🧁', '🍰', '🥤', '🧃', '☕', '🍺', '🍷', '🍕', '🍔', '🍟', '🌭', '🥪', '🍦', '🍿',
-  // Envases y limpieza
-  '📦', '🛍️', '🧴', '🧼', '🧻', '🧽', '🗑️', '🥫', '🍶', '🪣', '🧺', '🔪', '🍳', '🥄',
-  // Transporte y servicios
-  '⛽', '🚗', '🏍️', '🚌', '🛞', '🔧', '🔨', '🔌', '🔋', '🔥', '💡', '💧', '📱', '💻', '🌐', '📞', '🧾', '📝', '💳', '💵',
-  // Personal y casa
-  '🛒', '🏠', '👕', '👟', '👖', '💊', '🩺', '✂️', '💈', '🎁', '🎂', '🎮', '🎬', '🎓', '📚', '🐶', '👶', '🧸', '✈️', '🏥'
-];
+const EMOJIS_GASTO_CATS = {
+  "Comida": ["🍅", "🍆", "🍇", "🍈", "🍉", "🍊", "🍋", "🍌", "🍍", "🍎", "🍏", "🍐", "🍑", "🍒", "🍓", "🍔", "🍕", "🍖", "🍗", "🍘", "🍙", "🍚", "🍛", "🍜", "🍝", "🍞", "🍟", "🍠", "🍡", "🍢", "🍣", "🍤", "🍥", "🍦", "🍧", "🍨", "🍩", "🍪", "🍫", "🍬", "🍭", "🍮", "🍯", "🍰", "🍱", "🍲", "🍳", "🍴", "🍵", "🍶", "🍷", "🍸", "🍹", "🍺", "🍻", "🥐", "🥑", "🥒", "🥓", "🥔", "🥕", "🥖", "🥗", "🥘", "🥙", "🥚", "🥛", "🥜", "🥝", "🥞", "🥟", "🥠", "🥡", "🥢", "🥣", "🥤", "🥥", "🥦", "🥧", "🥨", "🥩", "🥪", "🥫", "🥬", "🥭", "🥮", "🥯", "🧀", "🧁", "🧂", "🌭", "🌮", "🌯", "🌰", "🌽", "🌶", "🧇", "🍿", "🎂"],
+  "Bebidas y cocina": ["🍼", "☕", "🧃", "🥂", "🥃", "🍾", "🧉", "🧊", "🍽", "🥄", "🔪", "🏺", "🧄", "🧅", "🧆", "🧈"],
+  "Compras y casa": ["🛒", "🛍", "📦", "📫", "📮", "🧾", "💳", "💵", "💴", "💶", "💷", "💰", "💸", "🏷", "🎁", "🎀", "🎈", "🎉", "🎊", "🧰", "🧱", "🧲", "🧳", "🧴", "🧵", "🧶", "🧷", "🧸", "🧹", "🧺", "🧻", "🧼", "🧽", "🧿", "🔧", "🔨", "⚒", "🛠", "⛏", "🔩", "⚙", "🗜", "🔗", "⛓", "🔑", "🗝", "🔒", "🔓", "🚪", "🛏", "🛋", "🚿", "🛁", "🚽", "🚰", "🪑", "💡", "🔦", "🕯", "🔌", "🔋", "🔥", "💧", "🧯", "🏠", "🏡", "🏢", "🏬", "🏭", "🏪", "🏫", "🏥", "🏦", "🏨", "⛪", "🕌", "🛕"],
+  "Transporte": ["🚀", "🚁", "🚂", "🚃", "🚄", "🚅", "🚆", "🚇", "🚈", "🚉", "🚊", "🚋", "🚌", "🚍", "🚎", "🚏", "🚐", "🚑", "🚒", "🚓", "🚔", "🚕", "🚖", "🚗", "🚘", "🚙", "🚚", "🚛", "🚜", "🚝", "🚞", "🚟", "🚠", "🚡", "🚢", "🚣", "🚤", "🚥", "🚦", "🚧", "🚨", "🚩", "🚫", "🚬", "🏎", "🏍", "🛵", "🚲", "🛴", "🛹", "🛺", "⛽", "🛣", "🛤", "⛴", "🛥", "✈", "🛩", "🛫", "🛬", "🪂", "🛢", "🅿", "🗺", "🧭", "⛵", "🛶"],
+  "Ropa y cuidado": ["👕", "👖", "🧣", "🧤", "🧥", "🧦", "👗", "👘", "🥻", "🩱", "🩲", "🩳", "👙", "👚", "👛", "👜", "👝", "🎒", "👞", "👟", "🥾", "🥿", "👠", "👡", "👢", "👑", "👒", "🎩", "🎓", "🧢", "⛑", "👓", "🕶", "🥽", "🥼", "🦺", "💄", "💍", "💎", "💈", "✂", "🪒", "💊", "💉", "🩺", "🩹", "🩸", "🧬", "🦷", "🧖", "🛀", "🛌", "💅", "💇", "🦰", "🦱", "🦲", "🦳"],
+  "Ocio y trabajo": ["🎮", "🕹", "🎲", "🎯", "🎳", "🎰", "🧩", "🎨", "🎬", "🎤", "🎧", "🎸", "🎹", "🎺", "🎻", "🥁", "🎷", "📚", "📖", "📕", "📗", "📘", "📙", "📓", "📒", "📝", "✏", "🖊", "🖋", "🖌", "🖍", "📏", "📐", "📌", "📍", "📎", "🖇", "🗂", "📁", "📂", "🗃", "🗄", "🗑", "📱", "📲", "💻", "🖥", "🖨", "⌨", "🖱", "💾", "💿", "📀", "📷", "📸", "📹", "🎥", "📞", "☎", "📟", "📠", "📺", "📻", "🎙", "📡", "🔭", "🔬", "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏉", "🎱", "🏓", "🏸", "🥊", "🥋", "🥅", "⛳", "🏹", "🎣", "🎿", "🏂", "🏋", "🚴", "🏊", "🏆", "🏅", "🎖", "🥇", "🥈", "🥉"],
+  "Animales y plantas": ["🐀", "🐁", "🐂", "🐃", "🐄", "🐅", "🐆", "🐇", "🐈", "🐉", "🐊", "🐋", "🐌", "🐍", "🐎", "🐏", "🐐", "🐑", "🐒", "🐓", "🐔", "🐕", "🐖", "🐗", "🐘", "🐙", "🐚", "🐛", "🐜", "🐝", "🐞", "🐟", "🐠", "🐡", "🐢", "🐣", "🐤", "🐥", "🐦", "🐧", "🐨", "🐩", "🐪", "🐫", "🐬", "🐭", "🐮", "🐯", "🐰", "🐱", "🐲", "🐳", "🐴", "🐵", "🐶", "🐷", "🐸", "🐹", "🐺", "🐻", "🐼", "🐽", "🐾", "🦀", "🦁", "🦂", "🦃", "🦄", "🦅", "🦆", "🦇", "🦈", "🦉", "🦊", "🦋", "🦌", "🦍", "🦎", "🦏", "🦐", "🦑", "🦒", "🦓", "🦔", "🦕", "🦖", "🦗", "🦘", "🦙", "🦚", "🦛", "🦜", "🦝", "🦞", "🦟", "🦠", "🦡", "🦢", "🦥", "🦦", "🦧", "🦨", "🦩", "🦪", "🦮", "🌱", "🌿", "☘", "🍀", "🌸", "🌹", "🌺", "🌻", "🌼", "🌷", "🌲", "🌳", "🌴", "🌵", "🌾", "🍁", "🍂", "🍃", "🍄", "💐", "🌈", "☀", "🌙", "⭐", "🌟", "⚡", "❄", "☔", "🌊"],
+  "Símbolos": ["✅", "❌", "⭕", "❗", "❓", "💯", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤", "❤", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "⏰", "⌛", "⏳", "📅", "📆", "🗓", "📈", "📉", "📊", "🔔", "🔕", "⚠", "♻", "🆓", "🆕", "🆗"]
+};
+let gastoCatActual = 'Comida';
 let gastoEmojiActual = '📦';
 
 function seleccionarEmojiGasto(e) {
@@ -1720,6 +1721,20 @@ function seleccionarEmojiGasto(e) {
   });
 }
 
+function pintarEmojisGasto() {
+  document.getElementById('gasto-emoji-cats').innerHTML = Object.keys(EMOJIS_GASTO_CATS).map(n =>
+    `<button class="${n === gastoCatActual ? 'active' : ''}" onclick="elegirCatEmojiGasto('${n}')">${n}</button>`).join('');
+  document.getElementById('gasto-emoji-grid').innerHTML = EMOJIS_GASTO_CATS[gastoCatActual].map(e =>
+    `<div class="emoji-opt" data-e="${e}" onclick="seleccionarEmojiGasto('${e}')">${e}</div>`).join('');
+  seleccionarEmojiGasto(gastoEmojiActual);
+}
+
+function elegirCatEmojiGasto(nombre) {
+  gastoCatActual = nombre;
+  pintarEmojisGasto();
+  document.getElementById('gasto-emoji-grid').scrollTop = 0;
+}
+
 function abrirRemisMov(categoria) {
   remisMovCategoria = categoria;
   document.getElementById('remis-mov-title').textContent = categoria === 'insumos' ? 'Gasto de insumos' : 'Gasto personal';
@@ -1727,8 +1742,9 @@ function abrirRemisMov(categoria) {
   document.getElementById('remis-mov-monto').style.borderColor = '';
   document.getElementById('remis-mov-concepto').value = '';
   document.getElementById('remis-mov-concepto').style.borderColor = 'var(--border)';
-  document.getElementById('gasto-emoji-grid').innerHTML = EMOJIS_GASTO.map(e => `<div class="emoji-opt" data-e="${e}" onclick="seleccionarEmojiGasto('${e}')">${e}</div>`).join('');
-  seleccionarEmojiGasto(categoria === 'insumos' ? '📦' : '🛒');
+  gastoCatActual = 'Compras y casa';
+  gastoEmojiActual = categoria === 'insumos' ? '📦' : '🛒';
+  pintarEmojisGasto();
   mostrarOverlay('overlay-remis-mov');
 }
 
