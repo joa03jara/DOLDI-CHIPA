@@ -1382,3 +1382,4 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .gasto-prod .gp-fila b { color: var(--text); }
 .gasto-prod .gp-fila button { background: none; border: none; color: var(--text-3); font-size: 15px; padding: 4px 8px; }
 .gp-emoji { font-size: 20px; margin-right: 8px; }
+#gasto-emoji-grid { max-height: 210px; overflow-y: auto; padding-right: 2px; -webkit-overflow-scrolling: touch; }
