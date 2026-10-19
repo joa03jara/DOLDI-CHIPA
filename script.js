@@ -1228,22 +1228,6 @@ function moverMesVentas(delta) {
 // para que la pantalla de Ventas no abrume con números.
 // "Evolución" arranca cerrada del todo (ni siquiera se ven los días) y se
 // despliega recién al tocarla.
-function toggleEvolucion() {
-  const wrap = document.getElementById('evolucion-wrap');
-  const header = document.getElementById('evolucion-header');
-  const abierto = wrap.style.display === 'block';
-  wrap.style.display = abierto ? 'none' : 'block';
-  header.classList.toggle('abierto', !abierto);
-}
-
-function toggleVentasPorProducto() {
-  const wrap = document.getElementById('ventas-resumen');
-  const btn = document.getElementById('btn-por-producto');
-  const abierto = wrap.style.display === 'block';
-  wrap.style.display = abierto ? 'none' : 'block';
-  btn.classList.toggle('abierto', !abierto);
-}
-
 // Agrupa ventas por pedido: si un cliente compró varias cosas en el mismo
 // pedido (ej: chipá + factura), aparecen juntas en una sola fila, no una
 // fila por cada producto. La reusan tanto el buscador como el acordeón
@@ -1314,22 +1298,66 @@ function renderVentas() {
   const rangoActual = claveYEtiquetaPeriodo(fechaReferenciaVentas(), periodoVentas);
   let list = STATE.ventas.filter(v => v.ts >= rangoActual.inicio && v.ts < rangoActual.fin && (localidadFiltroVentas === 'todas' || v.localidad === localidadFiltroVentas));
   const resumen = document.getElementById('ventas-resumen');
-  let resumenHtml = '';
-  productosOrdenados().forEach(prod => {
-    const p = STATE.productos[prod];
-    const sumQty = list.filter(v => v.prod === prod).reduce((s, v) => s + (v.qty || 0), 0);
-    const sumMonto = list.filter(v => v.prod === prod).reduce((s, v) => s + v.monto, 0);
-    const qtyTexto = fmtCantidad(prod, sumQty);
-    resumenHtml += `<div class="prod-row">
-      <div class="prod-icon">${prodIconHtml(prod)}</div>
-      <div style="flex:1;">
-        <div class="prod-name">${p.label}</div>
-        ${sumQty>0 ? `<span class="qty-pill">${qtyTexto}</span>` : ''}
+  // Solo los productos que se vendieron en el período, del que más vendió al que menos.
+  const filas = productosOrdenados().map(prod => {
+    const delProd = list.filter(v => v.prod === prod);
+    return { prod, sumQty: delProd.reduce((s, v) => s + (v.qty || 0), 0), sumMonto: delProd.reduce((s, v) => s + v.monto, 0) };
+  }).filter(f => f.sumMonto > 0).sort((a, b) => b.sumMonto - a.sumMonto);
+  const maximo = filas.length ? filas[0].sumMonto : 1;
+  resumen.innerHTML = filas.length ? filas.map(f => {
+    const p = STATE.productos[f.prod];
+    return `<div class="venta-prod">
+      <div class="vp-top">
+        <div class="prod-icon">${prodIconHtml(f.prod)}</div>
+        <div style="flex:1;">
+          <div class="prod-name">${p.label}</div>
+          ${f.sumQty > 0 ? `<span class="qty-pill">${fmtCantidad(f.prod, f.sumQty)}</span>` : ''}
+        </div>
+        <div class="stock-num">${fmtMoney(f.sumMonto)}</div>
       </div>
-      <div class="stock-num">${fmtMoney(sumMonto)}</div>
+      <div class="gp-bar"><i style="width:${Math.max(f.sumMonto / maximo * 100, 3)}%; background:var(--orange);"></i></div>
     </div>`;
+  }).join('') : '<div class="empty">Todavía no hay ventas en este período.</div>';
+
+  renderGraficoVentas(list, rangoActual);
+}
+
+// Barras de lo vendido: una por día de la semana (en Semana) o por día del
+// mes (en Mes). En Día no hace falta: es un solo día.
+function renderGraficoVentas(list, rango) {
+  const card = document.getElementById('ventas-grafico');
+  if (!card) return;
+  const titulo = card.previousElementSibling;
+  if (periodoVentas === 'dia') {
+    card.style.display = 'none';
+    if (titulo) titulo.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+  if (titulo) titulo.style.display = '';
+  const DIA = 24 * 60 * 60 * 1000;
+  const dias = Math.round((rango.fin - rango.inicio) / DIA);
+  const totales = new Array(dias).fill(0);
+  list.forEach(v => {
+    const i = Math.floor((v.ts - rango.inicio) / DIA);
+    if (i >= 0 && i < dias) totales[i] += v.monto;
   });
-  resumen.innerHTML = resumenHtml;
+  const max = Math.max.apply(null, totales);
+  if (max <= 0) {
+    card.innerHTML = '<div class="empty">Todavía no hay ventas en este período.</div>';
+    return;
+  }
+  const nombres = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  const iMejor = totales.indexOf(max);
+  const barras = totales.map((t, i) => {
+    const fecha = new Date(rango.inicio + i * DIA);
+    const etiqueta = periodoVentas === 'semana' ? nombres[i] : (i === 0 || (i + 1) % 5 === 0 ? String(fecha.getDate()) : '');
+    return `<div class="vg-col"><i class="${i === iMejor ? 'mejor' : ''}" style="height:${t > 0 ? Math.max(t / max * 100, 4) : 0}%;"></i><span>${etiqueta}</span></div>`;
+  }).join('');
+  const f = new Date(rango.inicio + iMejor * DIA);
+  const nombreMejor = f.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' }).replace('.', '');
+  card.innerHTML = `<div class="vg-barras ${periodoVentas === 'mes' ? 'fino' : ''}">${barras}</div>
+    <div class="vg-mejor">🏆 Mejor día: <b>${nombreMejor.charAt(0).toUpperCase() + nombreMejor.slice(1)}</b> · ${fmtMoney(max)}</div>`;
 }
 
 function eliminarVentaUI(id) {
@@ -1711,6 +1739,7 @@ const EMOJIS_GASTO_CATS = {
   "Animales y plantas": ["🐀", "🐁", "🐂", "🐃", "🐄", "🐅", "🐆", "🐇", "🐈", "🐉", "🐊", "🐋", "🐌", "🐍", "🐎", "🐏", "🐐", "🐑", "🐒", "🐓", "🐔", "🐕", "🐖", "🐗", "🐘", "🐙", "🐚", "🐛", "🐜", "🐝", "🐞", "🐟", "🐠", "🐡", "🐢", "🐣", "🐤", "🐥", "🐦", "🐧", "🐨", "🐩", "🐪", "🐫", "🐬", "🐭", "🐮", "🐯", "🐰", "🐱", "🐲", "🐳", "🐴", "🐵", "🐶", "🐷", "🐸", "🐹", "🐺", "🐻", "🐼", "🐽", "🐾", "🦀", "🦁", "🦂", "🦃", "🦄", "🦅", "🦆", "🦇", "🦈", "🦉", "🦊", "🦋", "🦌", "🦍", "🦎", "🦏", "🦐", "🦑", "🦒", "🦓", "🦔", "🦕", "🦖", "🦗", "🦘", "🦙", "🦚", "🦛", "🦜", "🦝", "🦞", "🦟", "🦠", "🦡", "🦢", "🦥", "🦦", "🦧", "🦨", "🦩", "🦪", "🦮", "🌱", "🌿", "☘", "🍀", "🌸", "🌹", "🌺", "🌻", "🌼", "🌷", "🌲", "🌳", "🌴", "🌵", "🌾", "🍁", "🍂", "🍃", "🍄", "💐", "🌈", "☀", "🌙", "⭐", "🌟", "⚡", "❄", "☔", "🌊"],
   "Símbolos": ["✅", "❌", "⭕", "❗", "❓", "💯", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤", "❤", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "⏰", "⌛", "⏳", "📅", "📆", "🗓", "📈", "📉", "📊", "🔔", "🔕", "⚠", "♻", "🆓", "🆕", "🆗"]
 };
+const EMOJIS_GASTO_NOMBRES = {"🍅": "tomate", "🍆": "berenjena", "🍇": "uvas", "🍈": "melón", "🍉": "sandía", "🍊": "mandarina", "🍋": "limón", "🍌": "plátano", "🍍": "piña", "🍎": "manzana roja", "🍏": "manzana verde", "🍐": "pera", "🍑": "melocotón", "🍒": "cerezas", "🍓": "fresa", "🍔": "hamburguesa hamburguesa comida", "🍕": "pizza pizza", "🍖": "carne con hueso", "🍗": "muslo de pollo pollo", "🍘": "galleta de arroz", "🍙": "bola de arroz", "🍚": "arroz cocido", "🍛": "arroz con curry", "🍜": "tazón de fideos", "🍝": "espagueti", "🍞": "pan de molde pan", "🍟": "patatas fritas", "🍠": "patata asada", "🍡": "dango", "🍢": "brocheta", "🍣": "sushi", "🍤": "gamba frita", "🍥": "pastel de pescado japonés", "🍦": "cucurucho de helado helado", "🍧": "granizado hawaiano", "🍨": "helado", "🍩": "dónut", "🍪": "galleta galletita", "🍫": "tableta de chocolate chocolate", "🍬": "caramelo azucar caramelo dulce", "🍭": "piruleta", "🍮": "flan", "🍯": "tarro de miel miel", "🍰": "trozo de tarta torta", "🍱": "caja de bento", "🍲": "olla de comida", "🍳": "cocinar", "🍴": "tenedor y cuchillo", "🍵": "tazón de té", "🍶": "sake", "🍷": "copa de vino", "🍸": "copa de cóctel", "🍹": "bebida tropical", "🍺": "jarra de cerveza", "🍻": "jarras de cerveza brindando", "🥐": "cruasán factura medialuna", "🥑": "aguacate", "🥒": "pepino", "🥓": "beicon", "🥔": "patata papa", "🥕": "zanahoria", "🥖": "baguete pan baguette", "🥗": "ensalada", "🥘": "paella", "🥙": "pan relleno", "🥚": "huevo huevo", "🥛": "vaso de leche leche", "🥜": "cacahuetes", "🥝": "kiwi", "🥞": "tortitas", "🥟": "dumpling", "🥠": "galleta de la fortuna", "🥡": "caja para llevar", "🥢": "palillos", "🥣": "cuenco con cuchara", "🥤": "vaso con pajita", "🥥": "coco", "🥦": "brócoli", "🥧": "pastel", "🥨": "bretzel", "🥩": "corte de carne carne", "🥪": "sándwich", "🥫": "comida enlatada", "🥬": "verdura de hoja verde", "🥭": "mango", "🥮": "pastel de luna", "🥯": "bagel", "🧀": "cuña de queso queso", "🧁": "magdalena", "🧂": "sal sal", "🌭": "perrito caliente", "🌮": "taco", "🌯": "burrito", "🌰": "castaña", "🌽": "espiga de maíz", "🌶": "chile picante", "🧇": "gofre", "🍿": "palomitas", "🎂": "tarta de cumpleaños torta cumpleaños", "🍼": "biberón", "☕": "bebida caliente cafe", "🧃": "tetrabrik", "🥂": "copas brindando", "🥃": "vaso de whisky", "🍾": "botella descorchada", "🧉": "mate", "🧊": "cubito de hielo", "🍽": "cuchillo y tenedor con un plato", "🥄": "cuchara", "🔪": "cuchillo de cocina", "🏺": "ánfora", "🧄": "ajo", "🧅": "cebolla cebolla", "🧆": "falafel", "🧈": "mantequilla manteca", "🛒": "carrito de la compra supermercado compras super changuito", "🛍": "bolsas de compras bolsas compras", "📦": "paquete caja paquete insumos envase", "📫": "buzón cerrado con la bandera levantada", "📮": "buzón", "🧾": "recibo boleta factura ticket recibo", "💳": "tarjeta de crédito tarjeta", "💵": "billete de dólar plata efectivo billete", "💴": "billete de yen", "💶": "billete de euro", "💷": "billete de libra", "💰": "bolsa de dinero", "💸": "billete con alas", "🏷": "etiqueta", "🎁": "regalo regalo", "🎀": "lazo", "🎈": "globo", "🎉": "cañón de confeti", "🎊": "bola de confeti", "🧰": "caja de herramientas", "🧱": "ladrillo", "🧲": "imán", "🧳": "equipaje", "🧴": "bote de crema detergente limpieza crema", "🧵": "hilo", "🧶": "ovillo", "🧷": "imperdible", "🧸": "osito de peluche", "🧹": "escoba", "🧺": "cesta", "🧻": "rollo de papel papel higienico rollo", "🧼": "jabón jabon", "🧽": "esponja", "🧿": "ojo turco", "🔧": "llave inglesa llave arreglo mecanico", "🔨": "martillo", "⚒": "martillo y pico", "🛠": "martillo y llave inglesa herramientas arreglo", "⛏": "pico", "🔩": "tornillo y tuerca", "⚙": "engranaje", "🗜": "tornillo de banco", "🔗": "eslabón", "⛓": "cadenas", "🔑": "llave", "🗝": "llave antigua", "🔒": "candado cerrado", "🔓": "candado abierto", "🚪": "puerta", "🛏": "cama", "🛋": "sofá y lámpara", "🚿": "ducha", "🛁": "bañera", "🚽": "inodoro", "🚰": "agua potable", "🪑": "silla", "💡": "bombilla luz electricidad", "🔦": "linterna", "🕯": "vela", "🔌": "enchufe eléctrico", "🔋": "pila", "🔥": "fuego gas", "💧": "gota agua", "🧯": "extintor", "🏠": "casa casa alquiler", "🏡": "casa con jardín", "🏢": "edificio de oficinas", "🏬": "grandes almacenes", "🏭": "fábrica", "🏪": "tienda 24 horas", "🏫": "colegio", "🏥": "hospital", "🏦": "banco", "🏨": "hotel", "⛪": "iglesia", "🕌": "mezquita", "🛕": "templo hindú", "🚀": "cohete", "🚁": "helicóptero", "🚂": "locomotora de vapor", "🚃": "vagón", "🚄": "tren de alta velocidad", "🚅": "tren bala", "🚆": "tren", "🚇": "metro", "🚈": "tren ligero", "🚉": "estación de tren", "🚊": "tranvía", "🚋": "vagón de tranvía", "🚌": "autobús", "🚍": "autobús próximo", "🚎": "trolebús", "🚏": "parada de autobús", "🚐": "minibús", "🚑": "ambulancia", "🚒": "coche de bomberos", "🚓": "coche de policía", "🚔": "coche de policía próximo", "🚕": "taxi", "🚖": "taxi próximo", "🚗": "coche auto coche", "🚘": "coche próximo", "🚙": "vehículo deportivo utilitario", "🚚": "camión de reparto", "🚛": "camión articulado", "🚜": "tractor", "🚝": "monorraíl", "🚞": "ferrocarril de montaña", "🚟": "ferrocarril de suspensión", "🚠": "teleférico de montaña", "🚡": "teleférico", "🚢": "barco", "🚣": "persona remando en un bote", "🚤": "lancha motora", "🚥": "semáforo horizontal", "🚦": "semáforo", "🚧": "obras", "🚨": "luces de policía", "🚩": "bandera triangular", "🚫": "prohibido", "🚬": "cigarrillo", "🏎": "coche de carreras", "🏍": "moto moto", "🛵": "scooter moto", "🚲": "bicicleta", "🛴": "patinete", "🛹": "monopatín", "🛺": "mototaxi", "⛽": "surtidor de gasolina nafta combustible gasoil", "🛣": "autopista", "🛤": "vía de tren", "⛴": "ferri", "🛥": "barco a motor", "✈": "avión", "🛩": "avioneta", "🛫": "avión despegando", "🛬": "avión aterrizando", "🪂": "paracaídas", "🛢": "barril de petróleo", "🅿": "aparcamiento", "🗺": "mapa mundial", "🧭": "brújula", "⛵": "velero", "🛶": "canoa", "👕": "camiseta ropa remera", "👖": "vaqueros ropa pantalon jean", "🧣": "bufanda", "🧤": "guantes", "🧥": "abrigo", "🧦": "calcetines", "👗": "vestido", "👘": "kimono", "🥻": "sari", "🩱": "traje de baño de una pieza", "🩲": "ropa interior", "🩳": "pantalones cortos", "👙": "bikini", "👚": "ropa de mujer", "👛": "monedero", "👜": "bolso", "👝": "bolso de mano", "🎒": "mochila escolar", "👞": "zapato de hombre", "👟": "zapatilla deportiva", "🥾": "bota de senderismo", "🥿": "bailarina", "👠": "zapato de tacón", "👡": "sandalia de mujer", "👢": "bota de mujer", "👑": "corona", "👒": "sombrero de mujer", "🎩": "sombrero de copa", "🎓": "birrete", "🧢": "gorra con visera", "⛑": "casco con una cruz blanca", "👓": "gafas", "🕶": "gafas de sol", "🥽": "gafas de protección", "🥼": "bata de laboratorio", "🦺": "chaleco de seguridad", "💄": "pintalabios", "💍": "anillo", "💎": "piedra preciosa", "💈": "poste de barbero", "✂": "tijeras", "🪒": "cuchilla de afeitar", "💊": "píldora remedio farmacia", "💉": "jeringuilla", "🩺": "estetoscopio", "🩹": "tirita", "🩸": "gota de sangre", "🧬": "adn", "🦷": "diente", "🧖": "persona en una sauna", "🛀": "persona en la bañera", "🛌": "persona en la cama", "💅": "pintarse las uñas", "💇": "persona cortándose el pelo", "🦰": "pelo pelirrojo", "🦱": "pelo rizado", "🦲": "sin pelo", "🦳": "pelo blanco", "🎮": "mando de videoconsola", "🕹": "joystick", "🎲": "dado", "🎯": "diana", "🎳": "bolos", "🎰": "máquina tragaperras", "🧩": "pieza de puzle", "🎨": "paleta de pintor", "🎬": "claqueta", "🎤": "micrófono", "🎧": "auricular", "🎸": "guitarra", "🎹": "teclado musical", "🎺": "trompeta", "🎻": "violín", "🥁": "tambor", "🎷": "saxofón", "📚": "libros", "📖": "libro abierto", "📕": "libro cerrado", "📗": "libro verde", "📘": "libro azul", "📙": "libro naranja", "📓": "cuaderno", "📒": "libro de contabilidad", "📝": "cuaderno de notas", "✏": "lápiz", "🖊": "bolígrafo", "🖋": "estilográfica", "🖌": "pincel", "🖍": "lápiz de cera", "📏": "regla", "📐": "escuadra", "📌": "chincheta", "📍": "chincheta redonda", "📎": "clip", "🖇": "clips unidos", "🗂": "separador de fichas", "📁": "carpeta de archivos", "📂": "carpeta de archivos abierta", "🗃": "archivador de tarjetas", "🗄": "archivador", "🗑": "papelera", "📱": "teléfono móvil celular telefono", "📲": "móvil con una flecha", "💻": "ordenador portátil", "🖥": "ordenador de sobremesa", "🖨": "impresora", "⌨": "teclado", "🖱": "ratón de ordenador", "💾": "disquete", "💿": "disco óptico", "📀": "disco dvd", "📷": "cámara de fotos", "📸": "cámara con flash", "📹": "videocámara", "🎥": "cámara de cine", "📞": "auricular de teléfono", "☎": "teléfono", "📟": "busca", "📠": "máquina de fax", "📺": "televisión", "📻": "radio", "🎙": "micrófono de estudio", "📡": "antena de satélite", "🔭": "telescopio", "🔬": "microscopio", "⚽": "balón de fútbol", "🏀": "balón de baloncesto", "🏈": "balón de fútbol americano", "⚾": "béisbol", "🎾": "pelota de tenis", "🏐": "pelota de voleibol", "🏉": "balón de rugby", "🎱": "bola negra de billar", "🏓": "tenis de mesa", "🏸": "bádminton", "🥊": "guante de boxeo", "🥋": "uniforme de artes marciales", "🥅": "portería", "⛳": "banderín en hoyo", "🏹": "arco y flecha", "🎣": "caña de pescar", "🎿": "esquís", "🏂": "practicante de snowboard", "🏋": "persona levantando pesas", "🚴": "persona en bicicleta", "🏊": "persona nadando", "🏆": "trofeo", "🏅": "medalla deportiva", "🎖": "medalla militar", "🥇": "medalla de oro", "🥈": "medalla de plata", "🥉": "medalla de bronce", "🐀": "rata", "🐁": "ratón", "🐂": "buey", "🐃": "búfalo de agua", "🐄": "vaca", "🐅": "tigre", "🐆": "leopardo", "🐇": "conejo", "🐈": "gato", "🐉": "dragón", "🐊": "cocodrilo", "🐋": "ballena", "🐌": "caracol", "🐍": "serpiente", "🐎": "caballo", "🐏": "carnero", "🐐": "cabra", "🐑": "oveja", "🐒": "mono", "🐓": "gallo", "🐔": "gallina", "🐕": "perro", "🐖": "cerdo", "🐗": "jabalí", "🐘": "elefante", "🐙": "pulpo", "🐚": "caracola", "🐛": "bicho", "🐜": "hormiga", "🐝": "abeja", "🐞": "mariquita", "🐟": "pez", "🐠": "pez tropical", "🐡": "pez globo", "🐢": "tortuga", "🐣": "pollito rompiendo el cascarón", "🐤": "pollito", "🐥": "pollito de frente", "🐦": "pájaro", "🐧": "pingüino", "🐨": "koala", "🐩": "caniche", "🐪": "dromedario", "🐫": "camello", "🐬": "delfín", "🐭": "cara de ratón", "🐮": "cara de vaca", "🐯": "cara de tigre", "🐰": "cara de conejo", "🐱": "cara de gato", "🐲": "cara de dragón", "🐳": "ballena soltando un chorro", "🐴": "cara de caballo", "🐵": "cara de mono", "🐶": "cara de perro", "🐷": "cara de cerdo", "🐸": "rana", "🐹": "hámster", "🐺": "lobo", "🐻": "oso", "🐼": "panda", "🐽": "nariz de cerdo", "🐾": "huellas de pezuñas", "🦀": "cangrejo", "🦁": "león", "🦂": "escorpión", "🦃": "pavo", "🦄": "unicornio", "🦅": "águila", "🦆": "pato", "🦇": "murciélago", "🦈": "tiburón", "🦉": "búho", "🦊": "zorro", "🦋": "mariposa", "🦌": "ciervo", "🦍": "gorila", "🦎": "lagarto", "🦏": "rinoceronte", "🦐": "gamba", "🦑": "calamar", "🦒": "jirafa", "🦓": "cebra", "🦔": "erizo", "🦕": "saurópodo", "🦖": "t-rex", "🦗": "grillo", "🦘": "canguro", "🦙": "llama", "🦚": "pavo real", "🦛": "hipopótamo", "🦜": "loro", "🦝": "mapache", "🦞": "bogavante", "🦟": "mosquito", "🦠": "microbio", "🦡": "tejón", "🦢": "cisne", "🦥": "perezoso", "🦦": "nutria", "🦧": "orangután", "🦨": "mofeta", "🦩": "flamenco", "🦪": "ostra", "🦮": "perro guía", "🌱": "planta joven", "🌿": "hierba", "☘": "trébol", "🍀": "trébol de cuatro hojas", "🌸": "flor de cerezo", "🌹": "rosa", "🌺": "flor de hibisco", "🌻": "girasol", "🌼": "flor", "🌷": "tulipán", "🌲": "árbol de hoja perenne", "🌳": "árbol de hoja caduca", "🌴": "palmera", "🌵": "cactus", "🌾": "espiga de arroz harina trigo", "🍁": "hoja de arce", "🍂": "hojas caídas", "🍃": "hojas revoloteando al viento", "🍄": "champiñón", "💐": "ramo de flores", "🌈": "arcoíris", "☀": "sol", "🌙": "luna", "⭐": "estrella", "🌟": "estrella brillante", "⚡": "alto voltaje", "❄": "copo de nieve", "☔": "paraguas con gotas de lluvia", "🌊": "ola de mar", "✅": "botón de marca de verificación", "❌": "marca de cruz", "⭕": "círculo rojo hueco", "❗": "exclamación roja", "❓": "interrogación roja", "💯": "cien puntos", "🔴": "círculo rojo", "🟠": "círculo naranja", "🟡": "círculo amarillo", "🟢": "círculo verde", "🔵": "círculo azul", "🟣": "círculo morado", "⚫": "círculo negro", "⚪": "círculo blanco", "🟤": "círculo marrón", "❤": "corazón rojo", "🧡": "corazón naranja", "💛": "corazón amarillo", "💚": "corazón verde", "💙": "corazón azul", "💜": "corazón morado", "🖤": "corazón negro", "🤍": "corazón blanco", "⏰": "reloj despertador", "⌛": "reloj de arena sin tiempo", "⏳": "reloj de arena con tiempo", "📅": "calendario", "📆": "calendario recortable", "🗓": "calendario de espiral", "📈": "gráfica de evolución ascendente", "📉": "gráfica de evolución descendente", "📊": "gráfico de barras", "🔔": "campana", "🔕": "campana con signo de cancelación", "⚠": "advertencia", "♻": "símbolo de reciclaje", "🆓": "botón free", "🆕": "botón new", "🆗": "botón ok"};
 let gastoCatActual = 'Comida';
 let gastoEmojiActual = '📦';
 
@@ -1722,15 +1751,27 @@ function seleccionarEmojiGasto(e) {
 }
 
 function pintarEmojisGasto() {
-  document.getElementById('gasto-emoji-cats').innerHTML = Object.keys(EMOJIS_GASTO_CATS).map(n =>
-    `<button class="${n === gastoCatActual ? 'active' : ''}" onclick="elegirCatEmojiGasto('${n}')">${n}</button>`).join('');
-  document.getElementById('gasto-emoji-grid').innerHTML = EMOJIS_GASTO_CATS[gastoCatActual].map(e =>
-    `<div class="emoji-opt" data-e="${e}" onclick="seleccionarEmojiGasto('${e}')">${e}</div>`).join('');
+  const q = normalizarConcepto((document.getElementById('gasto-emoji-buscar') || {}).value);
+  const cont = document.getElementById('gasto-emoji-cats');
+  let lista;
+  if (q) {
+    // Buscando: se ignoran las pestañas y se miran todos los íconos por nombre.
+    cont.innerHTML = '';
+    lista = Object.keys(EMOJIS_GASTO_NOMBRES).filter(e => normalizarConcepto(EMOJIS_GASTO_NOMBRES[e]).includes(q));
+  } else {
+    cont.innerHTML = Object.keys(EMOJIS_GASTO_CATS).map(n =>
+      `<button class="${n === gastoCatActual ? 'active' : ''}" onclick="elegirCatEmojiGasto('${n}')">${n}</button>`).join('');
+    lista = EMOJIS_GASTO_CATS[gastoCatActual];
+  }
+  document.getElementById('gasto-emoji-grid').innerHTML = lista.length
+    ? lista.map(e => `<div class="emoji-opt" data-e="${e}" onclick="seleccionarEmojiGasto('${e}')">${e}</div>`).join('')
+    : '<div class="empty" style="grid-column:1/-1;">No hay íconos con ese nombre.</div>';
   seleccionarEmojiGasto(gastoEmojiActual);
 }
 
 function elegirCatEmojiGasto(nombre) {
   gastoCatActual = nombre;
+  document.getElementById('gasto-emoji-buscar').value = '';
   pintarEmojisGasto();
   document.getElementById('gasto-emoji-grid').scrollTop = 0;
 }
@@ -1743,6 +1784,7 @@ function abrirRemisMov(categoria) {
   document.getElementById('remis-mov-concepto').value = '';
   document.getElementById('remis-mov-concepto').style.borderColor = 'var(--border)';
   gastoCatActual = 'Compras y casa';
+  document.getElementById('gasto-emoji-buscar').value = '';
   gastoEmojiActual = categoria === 'insumos' ? '📦' : '🛒';
   pintarEmojisGasto();
   mostrarOverlay('overlay-remis-mov');
