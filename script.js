@@ -1479,21 +1479,29 @@ function renderRemis() {
   const esPersonal = m => m.categoria === 'personal';
   const esViejo = m => !m.categoria;
 
-  const listaInsumos = list.filter(esInsumos);
+  // Delivery ya no existe como categoría: lo viejo se cuenta dentro de Producción.
+  const listaInsumos = list.filter(m => esInsumos(m) || m.categoria === 'delivery');
   const listaPersonal = list.filter(esPersonal);
-  const listaDelivery = list.filter(m => m.categoria === 'delivery');
   const listaViejo = list.filter(esViejo);
 
   const totalInsumos = listaInsumos.reduce((s, m) => s + m.monto, 0);
   const totalPersonal = listaPersonal.reduce((s, m) => s + m.monto, 0);
   const totalViejo = listaViejo.reduce((s, m) => s + (m.tipo === 'ingreso' ? -m.monto : m.monto), 0);
-  const totalDelivery = listaDelivery.reduce((s, m) => s + m.monto, 0);
-  const totalGastado = totalInsumos + totalPersonal + totalDelivery + totalViejo;
+  const totalGastado = totalInsumos + totalPersonal + totalViejo;
 
   document.getElementById('remis-neto').textContent = fmtMoney(totalGastado);
-  document.getElementById('remis-ingresos').textContent = fmtMoney(totalInsumos);
-  document.getElementById('remis-gastos').textContent = fmtMoney(totalPersonal);
-  document.getElementById('remis-delivery').textContent = fmtMoney(totalDelivery);
+
+  const base = totalInsumos + totalPersonal;
+  const pIns = base > 0 ? totalInsumos / base * 100 : 0;
+  const fondoDona = base > 0 ? `conic-gradient(#f19f17 0 ${pIns}%, #8e5bd0 ${pIns}% 100%)` : 'var(--border)';
+  const pctTxt = v => (base > 0 ? Math.round(v / base * 100) : 0) + '%';
+  document.getElementById('gastos-resumen').innerHTML = `<div class="don">
+    <div class="dona" style="background:${fondoDona};"><i></i></div>
+    <div class="leyenda">
+      <div><span><span class="pto" style="background:#f19f17;"></span>Producción</span><b>${fmtMoney(totalInsumos)} · ${pctTxt(totalInsumos)}</b></div>
+      <div><span><span class="pto" style="background:#8e5bd0;"></span>Personal</span><b>${fmtMoney(totalPersonal)} · ${pctTxt(totalPersonal)}</b></div>
+    </div></div>`;
+  document.querySelectorAll('#gastos-chips button').forEach(b => b.classList.toggle('active', b.dataset.cat === catGastos));
 
   const filaHoraTexto = m => {
     const d = new Date(m.ts);
@@ -1537,9 +1545,7 @@ function renderRemis() {
     }).join('');
   };
 
-  document.getElementById('remis-list-insumos').innerHTML = renderPorConcepto(listaInsumos, 'insumos');
-  document.getElementById('remis-list-personal').innerHTML = renderPorConcepto(listaPersonal, 'personal');
-  document.getElementById('remis-list-delivery').innerHTML = renderPorConcepto(listaDelivery, 'delivery');
+  document.getElementById('remis-lista').innerHTML = renderPorConcepto(catGastos === 'insumos' ? listaInsumos : listaPersonal, catGastos);
 }
 
 /* ===== Gastos agrupados por concepto (leche, nafta, etc.) ===== */
@@ -1562,20 +1568,17 @@ function toggleConceptoGasto(clave) {
   renderRemis();
 }
 
-function renderPorConcepto(arr, categoria) {
-  if (arr.length === 0) return '<div class="empty">Todavía no hay movimientos acá.</div>';
-  const fmtFechaHora = ts => {
-    const d = new Date(ts);
-    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-  };
-  // Rangos fijos (hoy / esta semana / este mes) para mostrar al abrir un concepto
-  const ahora = Date.now();
-  const rHoy = claveYEtiquetaPeriodo(ahora, 'dia');
-  const rSem = claveYEtiquetaPeriodo(ahora, 'semana');
-  const rMes = claveYEtiquetaPeriodo(ahora, 'mes');
-  const sumaEn = (lista, r) => lista.filter(m => m.ts >= r.inicio && m.ts < r.fin).reduce((s, m) => s + m.monto, 0);
+let catGastos = 'insumos';
+function elegirCatGastos(c) {
+  catGastos = c;
+  renderRemis();
+}
 
-  // Agrupa lo del período que se está mirando
+// Cada producto aparece una sola vez con todo lo comprado en el período
+// sumado; al tocarlo se ven las compras una por una (fecha y lugar).
+function renderPorConcepto(arr, categoria) {
+  if (arr.length === 0) return '<div class="empty">Todavía no hay gastos en este período.</div>';
+  const fmtFechaHora = ts => new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
   const grupos = {};
   arr.forEach(m => {
     const k = normalizarConcepto(m.concepto) || '(sin concepto)';
@@ -1588,77 +1591,21 @@ function renderPorConcepto(arr, categoria) {
     g.total = g.items.reduce((s, m) => s + m.monto, 0);
     return g;
   }).sort((a, b) => b.total - a.total);
-  const totalReal = lista.reduce((s, g) => s + g.total, 0);
-  const totalGeneral = totalReal || 1;
-  const COLORES = ['#f19f17', '#c0392b', '#2e8b57', '#3b82c4', '#8e5bd0', '#16a3a3', '#d6609a', '#7a9a1f'];
-  // Con pocos conceptos se usa la paleta fija. Con más, se generan tantos
-  // colores como hagan falta, repartidos parejo por toda la rueda de color
-  // (nunca grises ni repetidos), y salteados para que dos porciones vecinas
-  // no queden con colores parecidos.
-  const colorUnico = (i, n) => {
-    if (n <= COLORES.length - 1) return COLORES[i];
-    const mcd = (a, b) => b === 0 ? a : mcd(b, a % b);
-    let paso = Math.max(2, Math.round(n * 0.382));
-    while (mcd(paso, n) !== 1) paso++;
-    const idx = (i * paso) % n;
-    const hue = Math.round(idx * 360 / n + 8) % 360;
-    const luz = [52, 40, 62][Math.floor(i / 12) % 3];
-    return 'hsl(' + hue + ', 72%, ' + luz + '%)';
-  };
-  lista.forEach((g, i) => { g.color = colorUnico(i, lista.length); g.pct = g.total / totalGeneral * 100; });
-
-  // Gráfico circular: cada porción es un concepto, con su % del total del período.
-  let acumulado = 0;
-  const porciones = lista.map(g => {
-    const p = g.pct;
+  const maximo = lista[0].total || 1;
+  const color = categoria === 'insumos' ? '#f19f17' : '#8e5bd0';
+  return lista.map(g => {
     const claveUI = categoria + '|' + g.clave;
     const claveEsc = claveUI.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    const seg = `<circle cx="21" cy="21" r="15.9155" fill="none" stroke="${g.color}" stroke-width="6" stroke-dasharray="${Math.max(p - 0.4, 0.1)} ${100 - Math.max(p - 0.4, 0.1)}" stroke-dashoffset="${25 - acumulado}" style="cursor:pointer;" onclick="toggleConceptoGasto('${claveEsc}')"></circle>`;
-    acumulado += p;
-    return seg;
-  }).join('');
-  const grafico = `<div style="display:flex; justify-content:center; margin:6px 0 10px;">
-    <div style="position:relative; width:190px; height:190px;">
-      <svg viewBox="0 0 42 42" width="190" height="190">
-        <circle cx="21" cy="21" r="15.9155" fill="none" stroke="var(--border)" stroke-width="6"></circle>
-        ${porciones}
-      </svg>
-      <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none;">
-        <div class="muted" style="font-size:11px;">100%</div>
-        <div style="font-weight:800; font-size:17px;">${fmtMoney(totalReal)}</div>
-      </div>
-    </div>
-  </div>`;
-
-  return grafico + lista.map(g => {
-    const claveUI = categoria + '|' + g.clave;
     const abierto = conceptosExpandidos.has(claveUI);
-    const pctTxt = (g.pct >= 10 ? Math.round(g.pct) : Math.round(g.pct * 10) / 10) + '%';
-    const claveEsc = claveUI.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    let detalle = '';
-    if (abierto) {
-      // Todo lo que se compró de este concepto en la historia, para los totales fijos
-      const todos = STATE.remis.filter(m => m.categoria === categoria && normalizarConcepto(m.concepto) === g.clave || (m.categoria === categoria && !g.clave && !m.concepto));
-      detalle = `
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:8px 0;">
-          <div style="text-align:center;"><div class="muted" style="font-size:11px;">Hoy</div><div style="font-weight:700;">${fmtMoney(sumaEn(todos, rHoy))}</div></div>
-          <div style="text-align:center;"><div class="muted" style="font-size:11px;">Esta semana</div><div style="font-weight:700;">${fmtMoney(sumaEn(todos, rSem))}</div></div>
-          <div style="text-align:center;"><div class="muted" style="font-size:11px;">Este mes</div><div style="font-weight:700;">${fmtMoney(sumaEn(todos, rMes))}</div></div>
-        </div>
-        ${g.items.map(m => `<div class="venta-item" style="padding-left:6px;">
-          <div><div class="p" style="font-size:13px;">${fmtFechaHora(m.ts)}</div></div>
-          <div class="m" style="color:var(--red);">− ${fmtMoney(m.monto)}</div>
-          <button class="btn btn-sm btn-ghost" style="padding:6px 10px; margin-left:8px;" onclick="eliminarRemisUI('${m.id}')">✕</button>
-        </div>`).join('')}`;
-    }
-    return `<div style="border-bottom:1px solid var(--border); padding:8px 0;">
-      <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="toggleConceptoGasto('${claveEsc}')">
-        <div style="flex:1; min-width:0;">
-          <div class="p" style="font-weight:700; display:flex; align-items:center; gap:8px;"><span style="width:12px; height:12px; border-radius:50%; background:${g.color}; flex-shrink:0;"></span><span>${g.nombre} <span class="muted" style="font-weight:500; font-size:12px;">· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</span></span></div>
-        </div>
-        <div style="text-align:right;"><div class="m" style="color:var(--red); font-weight:700;">${fmtMoney(g.total)}</div><div class="muted" style="font-size:12px; font-weight:700;">${pctTxt}</div></div>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(${abierto ? 90 : 0}deg);"><path d="M9 6l6 6-6 6"/></svg>
+    const detalle = abierto ? `<div class="gp-det">${g.items.map(m => `<div class="gp-fila">
+        <span>${fmtFechaHora(m.ts)}${m.lugar ? ' · ' + m.lugar : ''}</span><b>${fmtMoney(m.monto)}</b>
+        <button onclick="eliminarRemisUI('${m.id}')" aria-label="Borrar">✕</button></div>`).join('')}</div>` : '';
+    return `<div class="gasto-prod">
+      <div class="gp-top" onclick="toggleConceptoGasto('${claveEsc}')">
+        <span>${g.nombre} <small>· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</small></span>
+        <span>${fmtMoney(g.total)}</span>
       </div>
+      <div class="gp-bar"><i style="width:${Math.max(g.total / maximo * 100, 3)}%; background:${color};"></i></div>
       ${detalle}
     </div>`;
   }).join('');
@@ -1756,29 +1703,47 @@ let remisMovCategoria = 'insumos'; // 'insumos' o 'personal' — ya no se regist
 
 function abrirRemisMov(categoria) {
   remisMovCategoria = categoria;
-  document.getElementById('remis-mov-title').textContent = categoria === 'insumos' ? 'Gasto de insumos' : categoria === 'delivery' ? 'Gasto de delivery' : 'Gasto personal';
-  document.getElementById('remis-mov-btn').className = 'btn btn-block ' + (categoria === 'insumos' ? 'btn-rust' : categoria === 'delivery' ? 'btn-green' : 'btn-gold');
-  document.getElementById('remis-mov-monto').value = '';
-  document.getElementById('remis-mov-monto').style.borderColor = 'var(--border)';
-  document.getElementById('remis-mov-concepto').value = '';
-  document.getElementById('remis-mov-concepto').style.borderColor = 'var(--border)';
+  document.getElementById('remis-mov-title').textContent = categoria === 'insumos' ? 'Gasto de insumos' : 'Gasto personal';
+  document.getElementById('remis-mov-btn').className = 'btn btn-block ' + (categoria === 'insumos' ? 'btn-rust' : 'btn-gold');
+  document.getElementById('remis-mov-lugar').value = '';
+  document.getElementById('remis-mov-items').innerHTML = '';
+  agregarFilaGasto();
+  actualizarTotalGasto();
   mostrarOverlay('overlay-remis-mov');
 }
+
+function agregarFilaGasto() {
+  const fila = document.createElement('div');
+  fila.className = 'fila-gasto';
+  fila.innerHTML = '<input type="text" class="campo-simple g-prod" autocomplete="off" aria-label="Producto">' +
+    '<input type="text" inputmode="numeric" class="campo-simple g-monto" autocomplete="off" aria-label="Monto" oninput="formatMiles(this); actualizarTotalGasto()">';
+  document.getElementById('remis-mov-items').appendChild(fila);
+}
+
+function actualizarTotalGasto() {
+  let total = 0;
+  document.querySelectorAll('#remis-mov-items .g-monto').forEach(i => { total += parseMiles(i.value) || 0; });
+  document.getElementById('remis-mov-total').textContent = fmtMoney(total);
+}
+
 async function confirmarRemisMov() {
-  const montoInput = document.getElementById('remis-mov-monto');
-  const conceptoInput = document.getElementById('remis-mov-concepto');
-  const monto = parseMiles(montoInput.value);
-  const concepto = conceptoInput.value.trim();
-
-  let faltantes = [];
-  if (!monto || monto <= 0) faltantes.push('Monto');
-  if (!concepto) faltantes.push('Concepto');
-
-  montoInput.style.borderColor = (!monto || monto <= 0) ? 'var(--red)' : 'var(--border)';
-  conceptoInput.style.borderColor = !concepto ? 'var(--red)' : 'var(--border)';
-
-  if (faltantes.length > 0) {
-    showToast('Completá: ' + faltantes.join(', '));
+  const lugar = document.getElementById('remis-mov-lugar').value.trim();
+  const items = [];
+  let hayError = false;
+  document.querySelectorAll('#remis-mov-items .fila-gasto').forEach(fila => {
+    const prodInput = fila.querySelector('.g-prod');
+    const montoInput = fila.querySelector('.g-monto');
+    const concepto = prodInput.value.trim();
+    const monto = parseMiles(montoInput.value);
+    const vacia = !concepto && !(monto > 0);
+    const incompleta = !vacia && (!concepto || !(monto > 0));
+    prodInput.style.borderColor = (incompleta && !concepto) ? 'var(--red)' : 'var(--border)';
+    montoInput.style.borderColor = (incompleta && !(monto > 0)) ? 'var(--red)' : 'var(--border)';
+    if (incompleta) hayError = true;
+    else if (!vacia) items.push({ concepto, monto });
+  });
+  if (hayError || items.length === 0) {
+    showToast('Completá el producto y el monto');
     return;
   }
   if (!db) {
@@ -1787,25 +1752,26 @@ async function confirmarRemisMov() {
   }
 
   const categoriaAlMomento = remisMovCategoria;
+  const total = items.reduce((s, i) => s + i.monto, 0);
+  const ts = Date.now();
+  const compraId = 'c' + ts;
 
   // Mostramos todo resuelto de inmediato, sin esperar la confirmación de
   // Firebase, y mandamos el guardado real en paralelo, en segundo plano.
-  STATE.caja.total = (STATE.caja.total || 0) - monto;
+  STATE.caja.total = (STATE.caja.total || 0) - total;
   cerrarModal('overlay-remis-mov');
-  showToastExito((categoriaAlMomento === 'insumos' ? 'Gasto de insumos' : categoriaAlMomento === 'delivery' ? 'Gasto de delivery' : 'Gasto personal') + ' registrado');
+  showToastExito((categoriaAlMomento === 'insumos' ? 'Gasto de insumos' : 'Gasto personal') + ' registrado');
   renderCaja();
 
   try {
-    await Promise.all([
-      db.collection('doldichipa_remis').add({
-        ts: Date.now(),
-        tipo: 'gasto',
-        categoria: categoriaAlMomento,
-        monto,
-        concepto
-      }),
-      saveCaja()
-    ]);
+    const batch = db.batch();
+    items.forEach(it => {
+      const mov = { ts, tipo: 'gasto', categoria: categoriaAlMomento, monto: it.monto, concepto: it.concepto, compraId };
+      if (lugar) mov.lugar = lugar;
+      batch.set(db.collection('doldichipa_remis').doc(), mov);
+    });
+    await batch.commit();
+    await saveCaja();
   } catch (e) {
     showToast('⚠️ Este gasto no llegó a guardarse en la nube, revisalo');
   }
