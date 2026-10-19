@@ -1701,7 +1701,16 @@ async function eliminarRemisSoloHistorialConfirmado(id) {
 
 let remisMovCategoria = 'insumos'; // 'insumos' o 'personal' — ya no se registran ingresos acá
 
-const EMOJIS_GASTO = ['🥛', '🧀', '🧈', '🌾', '🥚', '🍬', '🧂', '🛍️', '⛽', '🚗', '🏍️', '📦', '🛒', '🍔', '☕', '💡', '📱', '👕', '💊', '🏠', '🎁', '🧴', '🔧', '🧾'];
+const EMOJIS_GASTO = [
+  // Ingredientes y comida
+  '🥛', '🧀', '🧈', '🌾', '🥚', '🍬', '🧂', '🍫', '🍯', '🥜', '🍅', '🥕', '🧅', '🥔', '🍎', '🍌', '🍋', '🥩', '🍗', '🐟', '🍞', '🥖', '🥐', '🍪', '🧁', '🍰', '🥤', '🧃', '☕', '🍺', '🍷', '🍕', '🍔', '🍟', '🌭', '🥪', '🍦', '🍿',
+  // Envases y limpieza
+  '📦', '🛍️', '🧴', '🧼', '🧻', '🧽', '🗑️', '🥫', '🍶', '🪣', '🧺', '🔪', '🍳', '🥄',
+  // Transporte y servicios
+  '⛽', '🚗', '🏍️', '🚌', '🛞', '🔧', '🔨', '🔌', '🔋', '🔥', '💡', '💧', '📱', '💻', '🌐', '📞', '🧾', '📝', '💳', '💵',
+  // Personal y casa
+  '🛒', '🏠', '👕', '👟', '👖', '💊', '🩺', '✂️', '💈', '🎁', '🎂', '🎮', '🎬', '🎓', '📚', '🐶', '👶', '🧸', '✈️', '🏥'
+];
 let gastoEmojiActual = '📦';
 
 function seleccionarEmojiGasto(e) {
