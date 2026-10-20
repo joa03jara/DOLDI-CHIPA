@@ -2017,7 +2017,7 @@ function renderHistorial() {
     let detalleHtml = '';
     if (abierto) {
       const ventasDelPeriodo = STATE.ventas
-        .filter(v => v.ts >= d.inicio && v.ts < d.fin)
+        .filter(v => v.ts >= d.inicio && v.ts < d.fin && (localidadFiltroVentas === 'todas' || v.localidad === localidadFiltroVentas))
         .sort((a, b) => b.ts - a.ts);
       if (ventasDelPeriodo.length === 0) {
         detalleHtml = '<div class="empty" style="padding:10px 0 2px;">No hay ventas registradas en este período.</div>';
