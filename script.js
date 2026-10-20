@@ -1193,19 +1193,6 @@ function cambiarLocalidadFiltro(valor) {
   renderResumen();
 }
 
-function cambiarPeriodoVentas(p) {
-  periodoVentas = p;
-  mesOffsetVentas = 0; // al cambiar de pestaña, arranca siempre en el mes actual
-  historialExpandido = new Set(); // al cambiar de período, arranca todo cerrado
-  document.querySelectorAll('#tab-ventas .tabs-underline button[data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === p));
-  const nav = document.getElementById('mes-navegador');
-  if (nav) nav.style.display = (p === 'mes') ? 'flex' : 'none';
-  renderVentas();
-  renderResumen();
-}
-
-// Devuelve la fecha "de referencia" para calcular el período actual: si es
-// "Mes" y el usuario navegó hacia atrás, apunta a ese mes en vez de a hoy.
 function fechaReferenciaVentas() {
   if (periodoVentas === 'mes' && mesOffsetVentas !== 0) {
     const d = new Date();
@@ -1457,15 +1444,6 @@ function filtrarPorRango(list, rango) {
 let periodoGastos = 'mes';
 let mesOffsetGastos = 0; // 0 = mes actual, -1 = mes anterior, etc. (independiente del de Ventas)
 
-function cambiarPeriodoGastos(p) {
-  periodoGastos = p;
-  mesOffsetGastos = 0;
-  document.querySelectorAll('#tab-remis .tabs-underline button[data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === p));
-  const nav = document.getElementById('gastos-mes-navegador');
-  if (nav) nav.style.display = (p === 'mes') ? 'flex' : 'none';
-  renderRemis();
-}
-
 function fechaReferenciaGastos() {
   if (periodoGastos === 'mes' && mesOffsetGastos !== 0) {
     const d = new Date();
@@ -1529,7 +1507,6 @@ function renderRemis() {
       <div><span><span class="pto" style="background:#f19f17;"></span>Producción</span><b>${fmtMoney(totalInsumos)} · ${pctTxt(totalInsumos)}</b></div>
       <div><span><span class="pto" style="background:#8e5bd0;"></span>Personal</span><b>${fmtMoney(totalPersonal)} · ${pctTxt(totalPersonal)}</b></div>
     </div></div>`;
-  document.querySelectorAll('#gastos-chips button').forEach(b => b.classList.toggle('active', b.dataset.cat === catGastos));
 
   const filaHoraTexto = m => {
     const d = new Date(m.ts);
@@ -1573,7 +1550,9 @@ function renderRemis() {
     }).join('');
   };
 
-  document.getElementById('remis-lista').innerHTML = renderPorConcepto(catGastos === 'insumos' ? listaInsumos : listaPersonal, catGastos);
+  const seccion = (titulo, total, arr, categoria) => `<div class="gasto-seccion"><span>${titulo}</span><b>${fmtMoney(total)}</b></div>` + renderPorConcepto(arr, categoria);
+  document.getElementById('remis-lista-insumos').innerHTML = seccion('Producción', totalInsumos, listaInsumos, 'insumos');
+  document.getElementById('remis-lista-personal').innerHTML = seccion('Personal', totalPersonal, listaPersonal, 'personal');
 }
 
 /* ===== Gastos agrupados por concepto (leche, nafta, etc.) ===== */
@@ -1593,12 +1572,6 @@ let conceptosExpandidos = new Set();
 function toggleConceptoGasto(clave) {
   if (conceptosExpandidos.has(clave)) conceptosExpandidos.delete(clave);
   else conceptosExpandidos.add(clave);
-  renderRemis();
-}
-
-let catGastos = 'insumos';
-function elegirCatGastos(c) {
-  catGastos = c;
   renderRemis();
 }
 
