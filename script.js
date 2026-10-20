@@ -1193,19 +1193,6 @@ function cambiarLocalidadFiltro(valor) {
   renderResumen();
 }
 
-function cambiarPeriodoVentas(p) {
-  periodoVentas = p;
-  mesOffsetVentas = 0; // al cambiar de pestaña, arranca siempre en el mes actual
-  historialExpandido = new Set(); // al cambiar de período, arranca todo cerrado
-  document.querySelectorAll('#tab-ventas .tabs-underline button[data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === p));
-  const nav = document.getElementById('mes-navegador');
-  if (nav) nav.style.display = (p === 'mes') ? 'flex' : 'none';
-  renderVentas();
-  renderResumen();
-}
-
-// Devuelve la fecha "de referencia" para calcular el período actual: si es
-// "Mes" y el usuario navegó hacia atrás, apunta a ese mes en vez de a hoy.
 function fechaReferenciaVentas() {
   if (periodoVentas === 'mes' && mesOffsetVentas !== 0) {
     const d = new Date();
@@ -1457,15 +1444,6 @@ function filtrarPorRango(list, rango) {
 let periodoGastos = 'mes';
 let mesOffsetGastos = 0; // 0 = mes actual, -1 = mes anterior, etc. (independiente del de Ventas)
 
-function cambiarPeriodoGastos(p) {
-  periodoGastos = p;
-  mesOffsetGastos = 0;
-  document.querySelectorAll('#tab-remis .tabs-underline button[data-periodo]').forEach(b => b.classList.toggle('active', b.dataset.periodo === p));
-  const nav = document.getElementById('gastos-mes-navegador');
-  if (nav) nav.style.display = (p === 'mes') ? 'flex' : 'none';
-  renderRemis();
-}
-
 function fechaReferenciaGastos() {
   if (periodoGastos === 'mes' && mesOffsetGastos !== 0) {
     const d = new Date();
@@ -1529,7 +1507,6 @@ function renderRemis() {
       <div><span><span class="pto" style="background:#f19f17;"></span>Producción</span><b>${fmtMoney(totalInsumos)} · ${pctTxt(totalInsumos)}</b></div>
       <div><span><span class="pto" style="background:#8e5bd0;"></span>Personal</span><b>${fmtMoney(totalPersonal)} · ${pctTxt(totalPersonal)}</b></div>
     </div></div>`;
-  document.querySelectorAll('#gastos-chips button').forEach(b => b.classList.toggle('active', b.dataset.cat === catGastos));
 
   const filaHoraTexto = m => {
     const d = new Date(m.ts);
@@ -1573,7 +1550,9 @@ function renderRemis() {
     }).join('');
   };
 
-  document.getElementById('remis-lista').innerHTML = renderPorConcepto(catGastos === 'insumos' ? listaInsumos : listaPersonal, catGastos);
+  const seccion = (titulo, total, arr, categoria) => `<div class="gasto-seccion"><span>${titulo}</span><b>${fmtMoney(total)}</b></div>` + renderPorConcepto(arr, categoria);
+  document.getElementById('remis-lista-insumos').innerHTML = seccion('Producción', totalInsumos, listaInsumos, 'insumos');
+  document.getElementById('remis-lista-personal').innerHTML = seccion('Personal', totalPersonal, listaPersonal, 'personal');
 }
 
 /* ===== Gastos agrupados por concepto (leche, nafta, etc.) ===== */
@@ -1593,12 +1572,6 @@ let conceptosExpandidos = new Set();
 function toggleConceptoGasto(clave) {
   if (conceptosExpandidos.has(clave)) conceptosExpandidos.delete(clave);
   else conceptosExpandidos.add(clave);
-  renderRemis();
-}
-
-let catGastos = 'insumos';
-function elegirCatGastos(c) {
-  catGastos = c;
   renderRemis();
 }
 
@@ -2044,7 +2017,7 @@ function renderHistorial() {
     let detalleHtml = '';
     if (abierto) {
       const ventasDelPeriodo = STATE.ventas
-        .filter(v => v.ts >= d.inicio && v.ts < d.fin)
+        .filter(v => v.ts >= d.inicio && v.ts < d.fin && (localidadFiltroVentas === 'todas' || v.localidad === localidadFiltroVentas))
         .sort((a, b) => b.ts - a.ts);
       if (ventasDelPeriodo.length === 0) {
         detalleHtml = '<div class="empty" style="padding:10px 0 2px;">No hay ventas registradas en este período.</div>';
@@ -2234,22 +2207,42 @@ function renderDebo() {
 }
 
 function marcarDeboPagadoUI(id, concepto) {
+  const deuda = STATE.debo.find(d => d.id === id);
+  const monto = deuda ? deuda.monto : 0;
   confirmarAccion(
-    'Sacar de la lista: ' + concepto,
-    'Esto solo lo saca de "Debo". No toca la Caja ni los Gastos.',
+    'Ya pagué: ' + concepto,
+    'Se descuentan ' + fmtMoney(monto) + ' de tu Caja y queda anotado como gasto personal.',
     () => marcarDeboPagadoConfirmado(id)
   );
 }
 
+// Pagar una deuda es plata que sale: se descuenta de la Caja y queda como gasto
+// personal, así Inicio (Gastos y Caja) sigue cuadrando. Se borra de "Debo".
 async function marcarDeboPagadoConfirmado(id) {
   if (!db) {
     showToast('No está conectado a la nube (menú → Configuración)');
     return;
   }
+  const deuda = STATE.debo.find(d => d.id === id);
+  if (!deuda) return;
   try {
-    await db.collection('doldichipa_debo').doc(id).delete();
+    const batch = db.batch();
+    batch.set(db.collection('doldichipa_remis').doc(), {
+      ts: Date.now(),
+      tipo: 'gasto',
+      categoria: 'personal',
+      monto: deuda.monto,
+      concepto: 'Deuda: ' + deuda.concepto,
+      emoji: '💸'
+    });
+    batch.delete(db.collection('doldichipa_debo').doc(id));
+    await batch.commit();
+    STATE.caja.total = (STATE.caja.total || 0) - deuda.monto;
+    renderCaja();
+    showToastExito('Deuda pagada: ' + fmtMoney(deuda.monto) + ' menos en la Caja');
+    await saveCaja();
   } catch (e) {
-    showToast('No se pudo sacar de la lista, probá de nuevo');
+    showToast('No se pudo registrar el pago, probá de nuevo');
   }
 }
 

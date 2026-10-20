@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261019h">
+  <link rel="stylesheet" href="styles.css?v=20261020a">
 </head>
 
 <body>
@@ -94,11 +94,6 @@
     <!-- REMIS -->
     <section class="tab-panel" id="tab-remis">
       <div class="segmented grafico-toggle"><button class="active" onclick="irATab('remis')">Gastos</button><button onclick="irATab('ventas')">Ventas</button></div>
-      <div class="tabs-underline">
-        <button data-periodo="dia" onclick="cambiarPeriodoGastos('dia')">Día</button>
-        <button data-periodo="semana" onclick="cambiarPeriodoGastos('semana')">Semana</button>
-        <button class="active" data-periodo="mes" onclick="cambiarPeriodoGastos('mes')">Mes</button>
-      </div>
       <div id="gastos-mes-navegador" style="display:flex; align-items:center; justify-content:center; gap:14px; margin:0 0 14px;">
         <button class="btn btn-ghost btn-sm" onclick="moverMesGastos(-1)" style="padding:6px 12px; font-size:16px;">‹</button>
         <span id="gastos-mes-navegador-label" style="font-weight:700; font-size:14px; min-width:150px; text-align:center;"></span>
@@ -110,11 +105,8 @@
       </div>
       <div class="card gastos-resumen" id="gastos-resumen"></div>
 
-      <div class="cat-chips" id="gastos-chips">
-        <button data-cat="insumos" class="active" onclick="elegirCatGastos('insumos')">Producción</button>
-        <button data-cat="personal" onclick="elegirCatGastos('personal')">Personal</button>
-      </div>
-      <div class="card" id="remis-lista"></div>
+      <div class="card" id="remis-lista-insumos"></div>
+      <div class="card" id="remis-lista-personal"></div>
     </section>
 
     <!-- CAJA -->
@@ -193,11 +185,6 @@
     <section class="tab-panel" id="tab-ventas">
       <div class="segmented grafico-toggle"><button onclick="irATab('remis')">Gastos</button><button class="active" onclick="irATab('ventas')">Ventas</button></div>
 
-      <div class="tabs-underline">
-        <button data-periodo="dia" onclick="cambiarPeriodoVentas('dia')">Día</button>
-        <button data-periodo="semana" onclick="cambiarPeriodoVentas('semana')">Semana</button>
-        <button class="active" data-periodo="mes" onclick="cambiarPeriodoVentas('mes')">Mes</button>
-      </div>
       <div id="mes-navegador" style="display:flex; align-items:center; justify-content:center; gap:14px; margin:0 0 14px;">
         <button class="btn btn-ghost btn-sm" onclick="moverMesVentas(-1)" style="padding:6px 12px; font-size:16px;">‹</button>
         <span id="mes-navegador-label" style="font-weight:700; font-size:14px; min-width:150px; text-align:center;"></span>
@@ -254,7 +241,7 @@
     <!-- DEBO (plata que vos debés a otros) -->
     <section class="tab-panel" id="tab-debo">
       <div class="section-title">Debo</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Lo que vos debés. Es solo una lista: no toca la Caja ni los Gastos.</p>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Lo que vos debés. Al tocar "Ya pagué", esa plata se descuenta de la Caja.</p>
       <button class="btn btn-gold btn-block" onclick="abrirDeboForm()">+ Nueva deuda</button>
       <div class="total-banner" style="margin-top:14px;">
         <div class="big" id="debo-total">$0</div>
@@ -801,7 +788,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261019h"></script>
+  <script src="script.js?v=20261020b"></script>
 </body>
 
 </html>
