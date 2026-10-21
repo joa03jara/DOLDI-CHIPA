@@ -3456,6 +3456,7 @@ async function confirmarAgregarStock() {
   input.style.borderColor = 'var(--border)';
   const p = STATE.productos[editarStockProd];
   STATE.stock[editarStockProd] = (STATE.stock[editarStockProd] || 0) + val;
+  cerrarModal('overlay-editar-stock');
   showToastExito(p.label + ': stock actualizado');
   input.value = '';
   document.getElementById('editar-stock-input').value = STATE.stock[editarStockProd];
