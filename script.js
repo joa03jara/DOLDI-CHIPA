@@ -2038,17 +2038,13 @@ function renderHistorial() {
     return;
   }
 
-  // En "Mes" se ordena por plata (ranking: el mejor mes primero), no por
-  // fecha — así de un vistazo ves qué mes/temporada te rindió más.
-  const esRankingMeses = periodoVentas === 'mes';
-  if (esRankingMeses) datos = datos.slice().sort((a, b) => b.total - a.total);
+  // Del más nuevo al más viejo: Octubre, Septiembre, Agosto...
   datos = datos.slice(0, 14);
 
   wrap.innerHTML = datos.map((d, idx) => {
     const etiqueta = d.etiqueta.charAt(0).toUpperCase() + d.etiqueta.slice(1);
     const abierto = historialExpandido.has(d.clave);
     const claveEscapada = String(d.clave).replace(/'/g, "\\'");
-    const numeroRanking = esRankingMeses ? (idx + 1) + '. ' : '';
 
     let detalleHtml = '';
     if (abierto) {
@@ -2058,27 +2054,14 @@ function renderHistorial() {
       if (ventasDelPeriodo.length === 0) {
         detalleHtml = '<div class="empty" style="padding:10px 0 2px;">No hay ventas registradas en este período.</div>';
       } else {
-        // En "Mes" se destaca primero cuál fue el mejor día puntual de ese mes.
-        let mejorDiaHtml = '';
-        if (esRankingMeses) {
-          const diasBuckets = {};
-          ventasDelPeriodo.forEach(v => {
-            const diaInfo = claveYEtiquetaPeriodo(v.ts, 'dia');
-            if (!diasBuckets[diaInfo.clave]) diasBuckets[diaInfo.clave] = { etiqueta: diaInfo.etiqueta, total: 0 };
-            diasBuckets[diaInfo.clave].total += v.monto;
-          });
-          const mejorDia = Object.values(diasBuckets).sort((a, b) => b.total - a.total)[0];
-          const nombreMejorDia = mejorDia.etiqueta.charAt(0).toUpperCase() + mejorDia.etiqueta.slice(1);
-          mejorDiaHtml = `<div class="venta-item"><div class="p">🏆 Mejor día: ${nombreMejorDia}</div><div class="m">${fmtMoney(mejorDia.total)}</div></div>`;
-        }
         const subgrupos = agruparVentasPorPedido(ventasDelPeriodo);
-        detalleHtml = mejorDiaHtml + renderFilasVentas(subgrupos, { mostrarFecha: periodoVentas !== 'dia' });
+        detalleHtml = renderFilasVentas(subgrupos, { mostrarFecha: periodoVentas !== 'dia' });
       }
     }
 
     return `<div class="historial-row">
       <div class="historial-top" onclick="toggleHistorialRow('${claveEscapada}')">
-        <span class="historial-label">${numeroRanking}${abierto ? '▾' : '▸'} ${etiqueta}</span>
+        <span class="historial-label">${abierto ? '▾' : '▸'} ${etiqueta}</span>
         <span class="historial-monto">${fmtMoney(d.total)}</span>
       </div>
       ${abierto ? `<div class="historial-detalle">${detalleHtml}</div>` : ''}
