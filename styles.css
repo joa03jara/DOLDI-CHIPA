@@ -1418,3 +1418,4 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .debe-item .acc { grid-column: 2; grid-row: 2; justify-self: end; align-self: start; width: 96px; padding: 8px 0; border: none; border-radius: 10px; background: var(--green); color: #fff; font-weight: 700; font-size: 13px; font-family: inherit; }
 .debe-item .acc:active { opacity: .8; }
 .tag-ant { display: inline-block; margin-left: 4px; padding: 2px 8px; border-radius: 10px; background: var(--orange-soft); color: var(--orange-dark); font-size: 11px; font-weight: 700; vertical-align: middle; }
+.link-borrar { background: none; border: none; padding: 0; color: var(--red); font-weight: 700; font-size: 12.5px; font-family: inherit; text-decoration: underline; }

@@ -2141,7 +2141,7 @@ function renderDebe() {
   const htmlAnteriores = anteriores.map(d => `<div class="debe-item">
       <div class="nom">${d.cliente} <span class="tag-ant">Anterior</span></div>
       <div class="monto">${fmtMoney(d.monto)}</div>
-      <div class="det">Del cuaderno · ${haceTexto(ahora - (d.creadoTs || ahora))}</div>
+      <div class="det">Del cuaderno · ${haceTexto(ahora - (d.creadoTs || ahora))} · <button class="link-borrar" onclick="borrarCobrarUI('${d.id}', '${(d.cliente || '').replace(/'/g, "\\'")}')">Borrar</button></div>
       <button class="acc" onclick="marcarCobrarPagadoUI('${d.id}', '${(d.cliente || '').replace(/'/g, "\\'")}')">Me pagó</button>
     </div>`).join('');
   wrap.innerHTML = htmlVentas + htmlAnteriores;
@@ -2186,6 +2186,28 @@ function marcarCobrarPagadoUI(id, cliente) {
     '¿Te pagó ' + cliente + '?',
     'Se suman ' + fmtMoney(d ? d.monto : 0) + ' a tu Caja. No cuenta como venta de hoy.',
     () => marcarCobrarPagadoConfirmado(id)
+  );
+}
+
+// Borra una deuda anterior anotada por error. No toca la Caja ni las ventas.
+function borrarCobrarUI(id, cliente) {
+  confirmarAccion(
+    'Borrar la deuda de ' + cliente,
+    'Se saca de la lista "Me deben". No toca la Caja ni las ventas.',
+    async () => {
+      if (!db) {
+        showToast('No está conectado a la nube (menú → Configuración)');
+        return;
+      }
+      try {
+        await db.collection('doldichipa_cobrar').doc(id).delete();
+        STATE.cobrar = (STATE.cobrar || []).filter(x => x.id !== id);
+        renderDebe();
+        showToastExito('Deuda borrada');
+      } catch (e) {
+        showToast('No se pudo borrar, probá de nuevo');
+      }
+    }
   );
 }
 
