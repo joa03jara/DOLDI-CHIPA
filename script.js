@@ -2131,22 +2131,18 @@ function renderDebe() {
       return i.qtyLabel ? (i.qtyLabel + ' de ' + nombreProd) : nombreProd;
     }).join(', ');
     const idsJson = JSON.stringify(sg.ids).replace(/"/g, '&quot;');
-    return `<div class="venta-item">
-      <div style="flex:1;">
-        <div class="p">${nombre}</div>
-        <div class="t">${nombresTxt} · ${haceTexto(ahora - sg.ts)}</div>
-      </div>
-      <div class="m">${fmtMoney(sg.monto)}</div>
-      <button class="btn btn-sm btn-green" style="padding:6px 10px; margin-left:8px;" onclick='marcarVentaPagada(${idsJson}, ${sg.monto})'>Marcar pagado</button>
+    return `<div class="debe-item">
+      <div class="nom">${nombre}</div>
+      <div class="monto">${fmtMoney(sg.monto)}</div>
+      <div class="det">${nombresTxt} · ${haceTexto(ahora - sg.ts)}</div>
+      <button class="acc" onclick='marcarVentaPagada(${idsJson}, ${sg.monto})'>Me pagó</button>
     </div>`;
   }).join('');
-  const htmlAnteriores = anteriores.map(d => `<div class="venta-item">
-      <div style="flex:1;">
-        <div class="p">${d.cliente}</div>
-        <div class="t">Deuda anterior · ${haceTexto(ahora - (d.creadoTs || ahora))}</div>
-      </div>
-      <div class="m">${fmtMoney(d.monto)}</div>
-      <button class="btn btn-sm btn-green" style="padding:6px 10px; margin-left:8px;" onclick="marcarCobrarPagadoUI('${d.id}', '${(d.cliente || '').replace(/'/g, "\\'")}')">Me pagó</button>
+  const htmlAnteriores = anteriores.map(d => `<div class="debe-item">
+      <div class="nom">${d.cliente} <span class="tag-ant">Anterior</span></div>
+      <div class="monto">${fmtMoney(d.monto)}</div>
+      <div class="det">Del cuaderno · ${haceTexto(ahora - (d.creadoTs || ahora))}</div>
+      <button class="acc" onclick="marcarCobrarPagadoUI('${d.id}', '${(d.cliente || '').replace(/'/g, "\\'")}')">Me pagó</button>
     </div>`).join('');
   wrap.innerHTML = htmlVentas + htmlAnteriores;
 }
