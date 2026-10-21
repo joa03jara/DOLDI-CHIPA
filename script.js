@@ -90,7 +90,8 @@ let STATE = {
   caja: {
     total: 0
   },
-  puntosPorMil: 1
+  puntosPorMil: 1,
+  controlStock: false // apagado: se vende sin límite y el stock no se descuenta
 };
 let db = null;
 let firebaseConnected = false;
@@ -162,6 +163,12 @@ function attachListeners() {
     renderStock();
   }, () => {
     showToast('No se pudo leer el stock de la nube');
+  });
+  db.collection('doldichipa').doc('ajustes').onSnapshot(doc => {
+    STATE.controlStock = !!(doc.exists && doc.data().controlStock === true);
+    renderStock();
+  }, () => {
+    showToast('No se pudieron leer los ajustes de la nube');
   });
   db.collection('doldichipa').doc('precios').onSnapshot(doc => {
     STATE.precios = doc.exists ? doc.data() : {};
@@ -1068,7 +1075,15 @@ function productosOrdenados() {
 function renderStock() {
   const wrap = document.getElementById('stock-card');
   const ids = productosOrdenados();
-  let html = '<h2>Disponible ahora</h2><p class="muted" style="margin-top:-6px;">Tocá un producto para corregir la cantidad.</p>';
+  const on = !!STATE.controlStock;
+  let html = `<label class="switch-row">
+    <div style="flex:1;">
+      <div class="prod-name">Controlar el stock</div>
+      <div class="muted" style="margin:2px 0 0; font-size:12.5px;">${on ? 'Encendido: no deja vender si falta stock y lo descuenta en cada venta.' : 'Apagado: se vende sin límite y el stock no se descuenta.'}</div>
+    </div>
+    <input type="checkbox" class="switch" ${on ? 'checked' : ''} onchange="setControlStock(this.checked)" aria-label="Controlar el stock">
+  </label>
+  <div class="${on ? '' : 'stock-apagado'}"><h2>Disponible ahora</h2><p class="muted" style="margin-top:-6px;">Tocá un producto para corregir la cantidad.</p>`;
   if (ids.length === 0) html += '<div class="empty">Todavía no cargaste productos. Andá a la pestaña Productos.</div>';
   ids.forEach(prod => {
     const p = STATE.productos[prod];
@@ -1081,7 +1096,22 @@ function renderStock() {
       <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
     </div>`;
   });
-  wrap.innerHTML = html;
+  wrap.innerHTML = html + '</div>';
+}
+
+async function setControlStock(valor) {
+  STATE.controlStock = !!valor;
+  renderStock();
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
+    return;
+  }
+  try {
+    await db.collection('doldichipa').doc('ajustes').set({ controlStock: !!valor }, { merge: true });
+    showToastExito(valor ? 'Stock controlado' : 'Sin control de stock: se vende sin límite');
+  } catch (e) {
+    showToast('No se pudo guardar el ajuste, probá de nuevo');
+  }
 }
 
 function renderPrecios() {
@@ -1410,11 +1440,11 @@ async function eliminarVentaConfirmada(id, opts) {
   }
   try {
     // Una venta "Debe" sin cobrar nunca sumó a la caja, así que no hay nada que restarle.
-    STATE.stock[venta.prod] = (STATE.stock[venta.prod] || 0) + (venta.qty || 0);
+    if (STATE.controlStock) STATE.stock[venta.prod] = (STATE.stock[venta.prod] || 0) + (venta.qty || 0);
     if (venta.pagado !== false) STATE.caja.total = (STATE.caja.total || 0) - (venta.monto || 0);
     const promesas = [
       db.collection('doldichipa_ventas').doc(id).delete(),
-      saveStock(),
+      ...(STATE.controlStock ? [saveStock()] : []),
       saveCaja()
     ];
     // Si esta era la última venta de ese pedido, también se saca de "Completados hoy"
@@ -2675,6 +2705,7 @@ let pedidoOrigenId = null; // si la venta que se está confirmando viene de un p
 let pedidoClienteVentaAhora = ''; // nombre del cliente para el registro de "Completados hoy"
 
 function stockDisponiblePedido(prod) {
+  if (!STATE.controlStock) return Infinity; // sin control de stock: se puede vender sin límite
   const enCarrito = carrito.filter(i => i.prod === prod).reduce((s, i) => s + i.qty, 0);
   const enPedidoActual = pedidoItemsActual.filter(i => i.prod === prod).reduce((s, i) => s + i.qty, 0);
   const enPedidosPendientes = STATE.pedidos
@@ -3247,9 +3278,11 @@ async function confirmarVentaInterno() {
   // El stock se descuenta siempre (el producto ya salió, lo hayan pagado o
   // no). La caja, en cambio, solo se toca si ya está pagado (ver más abajo).
   const pagadoVenta = pagoVentaActual !== 'debe';
-  items.forEach(item => {
-    STATE.stock[item.prod] = Math.max(0, (STATE.stock[item.prod] || 0) - item.qty);
-  });
+  if (STATE.controlStock) {
+    items.forEach(item => {
+      STATE.stock[item.prod] = Math.max(0, (STATE.stock[item.prod] || 0) - item.qty);
+    });
+  }
 
   // El envío se suma una sola vez, en el último ítem, para no cobrarlo varias veces.
   let tsElegido = Date.now();
@@ -3287,7 +3320,7 @@ async function confirmarVentaInterno() {
     });
   });
 
-  const promesas = [saveStock(), ...ventaPromises];
+  const promesas = [...(STATE.controlStock ? [saveStock()] : []), ...ventaPromises];
 
   // Sumar el total de esta venta a la caja SOLO si ya está pagada. Si quedó
   // "Debe", esa plata todavía no la tenés en la mano: se suma recién cuando
@@ -3527,7 +3560,7 @@ function abrirSelectorCantidad(prod) {
     return;
   }
   document.getElementById('qty-title').innerHTML = `<span style="display:inline-flex; align-items:center; gap:8px; vertical-align:middle;">${prodIconHtml(prod,20)} ${p.label} — elegí la cantidad</span>`;
-  document.getElementById('qty-stock').textContent = 'Stock disponible: ' + fmtCantidad(prod, stockDisponiblePedido(prod));
+  document.getElementById('qty-stock').textContent = STATE.controlStock ? 'Stock disponible: ' + fmtCantidad(prod, stockDisponiblePedido(prod)) : '';
   const wrap = document.getElementById('qty-options');
   wrap.innerHTML = '';
 
