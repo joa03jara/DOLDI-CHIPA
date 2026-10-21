@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261021d">
+  <link rel="stylesheet" href="styles.css?v=20261021g">
 </head>
 
 <body>
@@ -230,7 +230,7 @@
     <!-- DEBE (quién me debe plata) -->
     <section class="tab-panel" id="tab-debe">
       <div class="section-title">Debe</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Pedidos entregados que todavía no te pagaron y deudas anteriores del cuaderno.</p>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Es solo un anotador de lo que te deben: no toca la Caja, ni las ventas, ni el stock.</p>
       <button class="btn btn-gold btn-block" style="margin-bottom:14px;" onclick="abrirCobrarForm()">+ Anotar deuda anterior</button>
       <div class="total-banner">
         <div class="big" id="debe-total">$0</div>
@@ -242,7 +242,7 @@
     <!-- DEBO (plata que vos debés a otros) -->
     <section class="tab-panel" id="tab-debo">
       <div class="section-title">Debo</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Lo que vos debés. Al tocar "Ya pagué", esa plata se descuenta de la Caja.</p>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Es solo un anotador de lo que vos debés: no toca la Caja, ni las ventas, ni el stock.</p>
       <button class="btn btn-gold btn-block" onclick="abrirDeboForm()">+ Nueva deuda</button>
       <div class="total-banner" style="margin-top:14px;">
         <div class="big" id="debo-total">$0</div>
@@ -801,7 +801,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261021d"></script>
+  <script src="script.js?v=20261021h"></script>
 </body>
 
 </html>
