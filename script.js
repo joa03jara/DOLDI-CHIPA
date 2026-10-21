@@ -1279,7 +1279,7 @@ function renderFilasVentas(subgrupos, opts) {
     const iconoProd = sg.items[0].prod;
     const idsJson = JSON.stringify(sg.ids).replace(/"/g, '&quot;');
     const debeTag = sg.items[0].pagado === false ?
-      `<button class="qty-pill" style="background:var(--red); color:#fff; border:none; margin-left:6px;" onclick='marcarVentaPagada(${idsJson}, ${sg.monto})' title="Tocá para marcar como pagado">Debe</button>` : '';
+      `<button class="qty-pill" style="background:var(--red); color:#fff; border:none; margin-left:6px;" onclick='pagarVentaUI(${idsJson}, ${sg.monto}, ${JSON.stringify(clienteTxt.replace(/ · $/, '') || 'el cliente').replace(/"/g, '&quot;').replace(/'/g, '&#39;')})' title="Tocá para marcar como pagado">Debe</button>` : '';
     const localidadTag = sg.items[0].localidad ?
       `<span class="qty-pill" style="background:var(--orange-soft); color:var(--orange-dark); margin-left:6px;">${sg.items[0].localidad}</span>` : '';
     return `<div class="venta-item">
@@ -2135,7 +2135,7 @@ function renderDebe() {
       <div class="nom">${nombre}</div>
       <div class="monto">${fmtMoney(sg.monto)}</div>
       <div class="det">${nombresTxt} · ${haceTexto(ahora - sg.ts)}</div>
-      <button class="acc" onclick='marcarVentaPagada(${idsJson}, ${sg.monto})'>Me pagó</button>
+      <button class="acc" onclick='pagarVentaUI(${idsJson}, ${sg.monto}, ${JSON.stringify(nombre).replace(/"/g, "&quot;").replace(/'/g, "&#39;")})'>Me pagó</button>
     </div>`;
   }).join('');
   const htmlAnteriores = anteriores.map(d => `<div class="debe-item">
@@ -2182,37 +2182,19 @@ async function confirmarCobrar() {
 
 function marcarCobrarPagadoUI(id, cliente) {
   const d = (STATE.cobrar || []).find(x => x.id === id);
-  confirmarAccion(
-    '¿Te pagó ' + cliente + '?',
-    'Se suman ' + fmtMoney(d ? d.monto : 0) + ' a tu Caja. No cuenta como venta de hoy.',
-    () => marcarCobrarPagadoConfirmado(id)
-  );
-}
-
-// Borra una deuda anterior anotada por error. No toca la Caja ni las ventas.
-function borrarCobrarUI(id, cliente) {
-  confirmarAccion(
-    'Borrar la deuda de ' + cliente,
-    'Se saca de la lista "Me deben". No toca la Caja ni las ventas.',
-    async () => {
-      if (!db) {
-        showToast('No está conectado a la nube (menú → Configuración)');
-        return;
-      }
-      try {
-        await db.collection('doldichipa_cobrar').doc(id).delete();
-        STATE.cobrar = (STATE.cobrar || []).filter(x => x.id !== id);
-        renderDebe();
-        showToastExito('Deuda borrada');
-      } catch (e) {
-        showToast('No se pudo borrar, probá de nuevo');
-      }
-    }
-  );
+  const monto = d ? d.monto : 0;
+  abrirPago({
+    titulo: '¿Te pagó ' + cliente + '?',
+    monto,
+    cajaTitulo: 'Me dio la plata',
+    cajaDesc: 'Suma ' + fmtMoney(monto) + ' a la Caja',
+    onCaja: () => marcarCobrarPagadoConfirmado(id, true),
+    onSolo: () => marcarCobrarPagadoConfirmado(id, false)
+  });
 }
 
 const _cobrosEnProceso = new Set();
-async function marcarCobrarPagadoConfirmado(id) {
+async function marcarCobrarPagadoConfirmado(id, conCaja) {
   if (_cobrosEnProceso.has(id)) return; // evita sumar dos veces si se toca más de una vez
   const d = (STATE.cobrar || []).find(x => x.id === id);
   if (!d) return;
@@ -2224,11 +2206,15 @@ async function marcarCobrarPagadoConfirmado(id) {
   try {
     await db.collection('doldichipa_cobrar').doc(id).delete();
     STATE.cobrar = STATE.cobrar.filter(x => x.id !== id);
-    STATE.caja.total = (STATE.caja.total || 0) + d.monto;
     renderDebe();
-    renderCaja();
-    showToastExito('Cobrado · ' + fmtMoney(d.monto) + ' más en la Caja');
-    await saveCaja();
+    if (conCaja) {
+      STATE.caja.total = (STATE.caja.total || 0) + d.monto;
+      renderCaja();
+      showToastExito('Cobrado · ' + fmtMoney(d.monto) + ' más en la Caja');
+      await saveCaja();
+    } else {
+      showToastExito('Tachado · la Caja no cambió');
+    }
   } catch (e) {
     showToast('No se pudo registrar el cobro, probá de nuevo');
   } finally {
@@ -2239,7 +2225,53 @@ async function marcarCobrarPagadoConfirmado(id) {
 // Marca como pagadas una o más ventas (las de un mismo pedido) y recién en
 // ese momento suma esa plata a la Caja (antes no estaba contada, porque no
 // la tenías en la mano).
+// Pregunta cómo se saldó una deuda: con plata de verdad (se mueve la Caja) o
+// solo tachándola (anotador: no toca la Caja, ni las ventas, ni el stock).
+// Sirve para compensar, por ejemplo, lo que te debe alguien contra lo que vos le debés.
+function abrirPago(o) {
+  document.getElementById('pago-titulo').textContent = o.titulo;
+  document.getElementById('pago-monto').textContent = fmtMoney(o.monto);
+  document.getElementById('pago-caja-t').textContent = o.cajaTitulo;
+  document.getElementById('pago-caja-d').textContent = o.cajaDesc;
+  document.getElementById('pago-caja-btn').onclick = () => { cerrarModal('overlay-pago'); o.onCaja(); };
+  document.getElementById('pago-solo-btn').onclick = () => { cerrarModal('overlay-pago'); o.onSolo(); };
+  mostrarOverlay('overlay-pago');
+}
+
+function pagarVentaUI(ids, monto, nombre) {
+  abrirPago({
+    titulo: '¿Te pagó ' + nombre + '?',
+    monto,
+    cajaTitulo: 'Me dio la plata',
+    cajaDesc: 'Suma ' + fmtMoney(monto) + ' a la Caja',
+    onCaja: () => marcarVentaPagada(ids, monto),
+    onSolo: () => marcarVentaPagadaSinCaja(ids)
+  });
+}
+
+const _ventasEnProceso = new Set();
+async function marcarVentaPagadaSinCaja(ids) {
+  const clave = ids.join(',');
+  if (_ventasEnProceso.has(clave)) return;
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
+    return;
+  }
+  _ventasEnProceso.add(clave);
+  try {
+    await Promise.all(ids.map(id => db.collection('doldichipa_ventas').doc(id).update({ pagado: true })));
+    showToastExito('Tachado · la Caja no cambió');
+  } catch (e) {
+    showToast('No se pudo tachar, probá de nuevo');
+  } finally {
+    _ventasEnProceso.delete(clave);
+  }
+}
+
 async function marcarVentaPagada(ids, monto) {
+  const clave = ids.join(',');
+  if (_ventasEnProceso.has(clave)) return; // evita sumar dos veces si se toca más de una vez
+  _ventasEnProceso.add(clave);
   if (!db) {
     showToast('No está conectado a la nube (menú → Configuración)');
     return;
@@ -2254,6 +2286,8 @@ async function marcarVentaPagada(ids, monto) {
     renderCaja();
   } catch (e) {
     showToast('No se pudo marcar como pagado, probá de nuevo');
+  } finally {
+    _ventasEnProceso.delete(clave);
   }
 }
 
@@ -2341,17 +2375,21 @@ function renderDebo() {
 function marcarDeboPagadoUI(id, concepto) {
   const deuda = STATE.debo.find(d => d.id === id);
   const monto = deuda ? deuda.monto : 0;
-  confirmarAccion(
-    'Ya pagué: ' + concepto,
-    'Se descuentan ' + fmtMoney(monto) + ' de tu Caja y queda anotado como gasto personal.',
-    () => marcarDeboPagadoConfirmado(id)
-  );
+  abrirPago({
+    titulo: 'Ya pagué: ' + concepto,
+    monto,
+    cajaTitulo: 'Pagué con mi plata',
+    cajaDesc: 'Resta ' + fmtMoney(monto) + ' de la Caja',
+    onCaja: () => marcarDeboPagadoConfirmado(id, true),
+    onSolo: () => marcarDeboPagadoConfirmado(id, false)
+  });
 }
 
-// Pagar una deuda es plata que sale: se descuenta de la Caja y queda como gasto
-// personal, así Inicio (Gastos y Caja) sigue cuadrando. Se borra de "Debo".
+// "Yo debo" es un anotador. Al tachar una deuda se elige si salió plata de la
+// Caja o no (por ejemplo, si se compensó con lo que te deben a vos). Devolver
+// un préstamo no es un gasto del mes, así que no se anota como gasto.
 const _deudasEnProceso = new Set();
-async function marcarDeboPagadoConfirmado(id) {
+async function marcarDeboPagadoConfirmado(id, conCaja) {
   if (_deudasEnProceso.has(id)) return; // evita registrar el mismo pago varias veces si se toca más de una vez
   if (!db) {
     showToast('No está conectado a la nube (menú → Configuración)');
@@ -2361,23 +2399,17 @@ async function marcarDeboPagadoConfirmado(id) {
   if (!deuda) return;
   _deudasEnProceso.add(id);
   try {
-    const batch = db.batch();
-    batch.set(db.collection('doldichipa_remis').doc(), {
-      ts: Date.now(),
-      tipo: 'gasto',
-      categoria: 'personal',
-      monto: deuda.monto,
-      concepto: 'Deuda: ' + deuda.concepto,
-      emoji: '💸'
-    });
-    batch.delete(db.collection('doldichipa_debo').doc(id));
-    await batch.commit();
+    await db.collection('doldichipa_debo').doc(id).delete();
     STATE.debo = STATE.debo.filter(d => d.id !== id);
     renderDebo();
-    STATE.caja.total = (STATE.caja.total || 0) - deuda.monto;
-    renderCaja();
-    showToastExito('Deuda pagada: ' + fmtMoney(deuda.monto) + ' menos en la Caja');
-    await saveCaja();
+    if (conCaja) {
+      STATE.caja.total = (STATE.caja.total || 0) - deuda.monto;
+      renderCaja();
+      showToastExito('Deuda pagada: ' + fmtMoney(deuda.monto) + ' menos en la Caja');
+      await saveCaja();
+    } else {
+      showToastExito('Tachado · la Caja no cambió');
+    }
   } catch (e) {
     showToast('No se pudo registrar el pago, probá de nuevo');
   } finally {
