@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261021i">
+  <link rel="stylesheet" href="styles.css?v=20261022a">
 </head>
 
 <body>
@@ -570,30 +570,19 @@
     </div>
   </div>
 
-  <!-- EDIT/DELETE STOCK -->
+  <!-- STOCK: sumar o poner el total -->
   <div class="overlay" id="overlay-editar-stock">
     <div class="sheet sheet-wrap">
       <button class="close" onclick="cerrarModal('overlay-editar-stock')">✕</button>
       <h3 id="editar-stock-title">Stock</h3>
-
-      <p class="muted" style="font-weight:700; margin:10px 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:0.3px;">Agregar stock</p>
-      <div class="row-input">
-        <label id="agregar-stock-label">Cantidad</label>
-        <input type="number" id="agregar-stock-input" min="1" step="1" style="width:110px; padding:8px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; text-align:left;" autocomplete="off">
+      <div class="stock-actual" id="stock-actual"></div>
+      <div class="monto-grande"><input type="number" inputmode="decimal" id="stock-cant" step="0.5" min="0" oninput="actualizarPreviewStock()" autocomplete="off" aria-label="Cantidad" style="width:70%;"></div>
+      <div class="segmented">
+        <button class="active" id="stock-modo-sumar" onclick="elegirModoStock('sumar')">Sumar</button>
+        <button id="stock-modo-total" onclick="elegirModoStock('total')">Poner total</button>
       </div>
-      <button class="btn btn-gold btn-block" style="margin-top:10px;" onclick="confirmarAgregarStock()">Agregar</button>
-
-      <button class="btn btn-sm btn-ghost" id="btn-mostrar-corregir-stock" style="margin-top:18px;" onclick="toggleCorregirStock()">¿Necesitás corregir el total a mano?</button>
-
-      <div id="corregir-stock-wrap" style="display:none;">
-        <p class="muted" style="font-weight:700; margin:18px 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:0.3px;">Corregir cantidad exacta</p>
-        <div class="row-input">
-          <label id="editar-stock-label">Cantidad</label>
-          <input type="number" id="editar-stock-input" step="0.5" min="0" style="width:120px; padding:8px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; text-align:left;" autocomplete="off">
-        </div>
-        <button class="btn btn-green btn-block" style="margin-top:10px;" onclick="confirmarEditarStock()">Guardar cantidad exacta</button>
-        <button class="btn btn-rust btn-block" style="margin-top:10px;" onclick="vaciarStock()">Vaciar (poner en 0)</button>
-      </div>
+      <div class="stock-quedaria" id="stock-quedaria"></div>
+      <button class="btn btn-gold btn-block" style="margin-top:6px;" onclick="guardarStock()">Guardar</button>
     </div>
   </div>
 
@@ -781,8 +770,6 @@
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
-
   <!-- OneSignal (avisos de pedido nuevo entre celulares) -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
@@ -801,7 +788,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261021j"></script>
+  <script src="script.js?v=20261022a"></script>
 </body>
 
 </html>

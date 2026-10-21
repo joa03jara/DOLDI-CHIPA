@@ -1426,3 +1426,12 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .switch:checked { background: var(--green); }
 .switch:checked::after { transform: translateX(22px); }
 .stock-apagado { opacity: .45; }
+
+/* ===== Avisos sin cartel flotante ===== */
+.form-error { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--red-soft); color: var(--red); font-size: 13.5px; font-weight: 600; text-align: center; }
+.aviso-falla { position: fixed; top: 0; left: 0; right: 0; z-index: 10000; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; background: var(--red); color: #fff; font-size: 13.5px; font-weight: 700; text-align: center; cursor: pointer; }
+/* ===== Stock ===== */
+.stock-actual { text-align: center; color: var(--text-2); font-size: 15px; margin-top: -2px; }
+.stock-actual b { color: var(--text); font-size: 17px; }
+.stock-quedaria { min-height: 22px; text-align: center; color: var(--text-2); font-size: 14px; margin: 12px 0 8px; }
+.stock-quedaria b { color: var(--text); }

@@ -592,23 +592,59 @@ function parseMiles(val) {
   return Number(String(val || '').replace(/\D/g, '')) || 0;
 }
 
+// Ya no hay carteles flotantes. Lo que antes salía como cartelito ahora se muestra
+// donde corresponde, sin tapar nada:
+//  - Errores de un formulario (falta un dato, etc.): escritos en rojo dentro del
+//    mismo formulario abierto.
+//  - Fallas reales (no hay conexión, algo no se guardó en la nube): una barra roja
+//    arriba que se cierra tocándola. Se deja ésta a propósito: si algo no se guarda
+//    y no hay ningún aviso, se pierde plata sin enterarte.
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._h);
-  t._h = setTimeout(() => t.classList.remove('show'), 2600);
+  if (/nube|No se pudo|no llegó|conectar|conexión/i.test(msg)) {
+    mostrarAvisoFalla(msg);
+    return;
+  }
+  const abiertos = Array.from(document.querySelectorAll('.overlay.show'));
+  if (!abiertos.length) return;
+  const arriba = abiertos.reduce((a, b) => (Number(b.style.zIndex) || 0) >= (Number(a.style.zIndex) || 0) ? b : a);
+  const sheet = arriba.querySelector('.sheet');
+  if (!sheet) return;
+  let e = sheet.querySelector('.form-error');
+  if (!e) {
+    e = document.createElement('div');
+    e.className = 'form-error';
+    e.setAttribute('role', 'alert');
+    sheet.appendChild(e);
+  }
+  e.textContent = msg;
 }
 
-// A pedido: los cartelitos de "todo salió bien" ya no se muestran. Se deja
-// esta función (en vez de borrar cada llamada) para no tener que tocar
-// código en más de 100 lugares, y para poder volver a activarlos fácil si
-// alguna vez se quiere. showToast (arriba) sigue funcionando normal para
-// errores y advertencias.
+function mostrarAvisoFalla(msg) {
+  let barra = document.getElementById('aviso-falla');
+  if (!barra) {
+    barra = document.createElement('div');
+    barra.id = 'aviso-falla';
+    barra.className = 'aviso-falla';
+    barra.onclick = () => barra.remove();
+    document.body.appendChild(barra);
+  }
+  barra.textContent = msg.replace(/^⚠️\s*/, '') + '  ✕';
+  clearTimeout(barra._h);
+  barra._h = setTimeout(() => barra.remove(), 9000);
+}
+
+// El error de un formulario se borra apenas se vuelve a escribir en él.
+document.addEventListener('input', ev => {
+  const sheet = ev.target.closest && ev.target.closest('.sheet');
+  const e = sheet && sheet.querySelector('.form-error');
+  if (e) e.remove();
+});
+
 function showToastExito(msg) {}
 
 function cerrarModal(id) {
   document.getElementById(id).classList.remove('show');
+  document.querySelectorAll('#' + id + ' .form-error').forEach(e => e.remove());
 }
 
 // Ventana de confirmación propia de la app (con el mismo estilo que todo lo
@@ -635,6 +671,7 @@ function mostrarOverlay(id) {
   const el = document.getElementById(id);
   overlayZTop++;
   el.style.zIndex = overlayZTop;
+  el.querySelectorAll('.form-error').forEach(e => e.remove());
   el.classList.add('show');
 }
 
@@ -3410,89 +3447,59 @@ async function confirmarVentaInterno() {
 /* ================= STOCK: agregar / corregir / vaciar (todo junto) ================= */
 let editarStockProd = null;
 
+let modoStock = 'sumar'; // 'sumar' | 'total'
+
 function abrirEditarStock(prod) {
   editarStockProd = prod;
   const p = STATE.productos[prod];
   if (!p) return;
-  document.getElementById('editar-stock-title').textContent = p.label + ' — Stock';
-
-  // Sección "Agregar stock" (siempre visible, es la acción principal)
-  document.getElementById('agregar-stock-label').textContent = 'Cantidad de ' + p.unit + ' a agregar';
-  const agregarInput = document.getElementById('agregar-stock-input');
-  agregarInput.value = '';
-  agregarInput.style.borderColor = 'var(--border)';
-  agregarInput.step = '0.5';
-
-  // Sección "Corregir cantidad exacta": arranca siempre oculta, para que no
-  // se pueda tocar por error y dejar el stock en 0 sin querer.
-  document.getElementById('corregir-stock-wrap').style.display = 'none';
-  document.getElementById('btn-mostrar-corregir-stock').textContent = '¿Necesitás corregir el total a mano?';
-  const editarInput = document.getElementById('editar-stock-input');
-  editarInput.step = '0.5';
-  editarInput.value = STATE.stock[prod] || 0;
-  editarInput.style.borderColor = 'var(--border)';
-  document.getElementById('editar-stock-label').textContent = 'Cantidad (' + p.unit + ')';
-
+  document.getElementById('editar-stock-title').textContent = p.label;
+  document.getElementById('stock-actual').innerHTML = 'Tenés <b>' + fmtCantidad(prod, STATE.stock[prod] || 0) + '</b>';
+  const input = document.getElementById('stock-cant');
+  input.value = '';
+  input.style.borderColor = '';
+  elegirModoStock('sumar');
   mostrarOverlay('overlay-editar-stock');
 }
 
-function toggleCorregirStock() {
-  const wrap = document.getElementById('corregir-stock-wrap');
-  const abierto = wrap.style.display !== 'none';
-  wrap.style.display = abierto ? 'none' : 'block';
-  document.getElementById('btn-mostrar-corregir-stock').textContent = abierto ?
-    '¿Necesitás corregir el total a mano?' :
-    'Ocultar corrección manual';
+function elegirModoStock(modo) {
+  modoStock = modo;
+  document.getElementById('stock-modo-sumar').classList.toggle('active', modo === 'sumar');
+  document.getElementById('stock-modo-total').classList.toggle('active', modo === 'total');
+  actualizarPreviewStock();
 }
 
-async function confirmarAgregarStock() {
-  const input = document.getElementById('agregar-stock-input');
-  const val = Number(input.value);
-  if (!val || val <= 0) {
-    input.style.borderColor = 'var(--red)';
-    showToast('Ingresá una cantidad válida');
-    return;
-  }
-  input.style.borderColor = 'var(--border)';
-  const p = STATE.productos[editarStockProd];
-  STATE.stock[editarStockProd] = (STATE.stock[editarStockProd] || 0) + val;
-  cerrarModal('overlay-editar-stock');
-  showToastExito(p.label + ': stock actualizado');
-  input.value = '';
-  document.getElementById('editar-stock-input').value = STATE.stock[editarStockProd];
-  renderStock();
-  renderVender();
-  const ok = await saveStock();
-  if (!ok) showToast('⚠️ El stock no llegó a guardarse en la nube, revisalo');
-}
-
-async function confirmarEditarStock() {
-  const input = document.getElementById('editar-stock-input');
+// Muestra cómo va a quedar el stock antes de guardar.
+function actualizarPreviewStock() {
+  const input = document.getElementById('stock-cant');
+  const prev = document.getElementById('stock-quedaria');
   const raw = input.value.trim();
   const val = Number(raw);
   if (raw === '' || isNaN(val) || val < 0) {
-    input.style.borderColor = 'var(--red)';
-    showToast('Ingresá una cantidad válida');
+    prev.textContent = '';
     return;
   }
-  input.style.borderColor = 'var(--border)';
-  STATE.stock[editarStockProd] = val;
+  const nuevo = modoStock === 'sumar' ? (STATE.stock[editarStockProd] || 0) + val : val;
+  prev.innerHTML = 'Va a quedar en <b>' + fmtCantidad(editarStockProd, nuevo) + '</b>';
+}
+
+async function guardarStock() {
+  const input = document.getElementById('stock-cant');
+  const raw = input.value.trim();
+  const val = Number(raw);
+  const invalido = raw === '' || isNaN(val) || val < 0 || (modoStock === 'sumar' && val === 0);
+  if (invalido) {
+    input.style.borderColor = 'var(--red)';
+    showToast(modoStock === 'sumar' ? 'Escribí cuánto querés sumar' : 'Escribí el total que hay');
+    return;
+  }
+  input.style.borderColor = '';
+  STATE.stock[editarStockProd] = modoStock === 'sumar' ? (STATE.stock[editarStockProd] || 0) + val : val;
   cerrarModal('overlay-editar-stock');
-  showToastExito('Stock de ' + STATE.productos[editarStockProd].label + ' actualizado');
   renderStock();
   renderVender();
   const ok = await saveStock();
   if (!ok) showToast('⚠️ El stock no llegó a guardarse en la nube, revisalo');
-}
-async function vaciarStock() {
-  STATE.stock[editarStockProd] = 0;
-  const ok = await saveStock();
-  if (ok) {
-    cerrarModal('overlay-editar-stock');
-    showToastExito('Stock de ' + STATE.productos[editarStockProd].label + ' vaciado');
-  }
-  renderStock();
-  renderVender();
 }
 
 /* ================= REINICIAR SISTEMA ================= */
