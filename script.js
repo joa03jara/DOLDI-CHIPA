@@ -94,6 +94,17 @@ let STATE = {
   controlStock: false // apagado: se vende sin límite y el stock no se descuenta
 };
 let db = null;
+// Mientras no llegaron las ventas, los gastos y la caja, Inicio muestra "Cargando…"
+// en vez de $0 y "no hay movimientos" (que parece que se perdió todo).
+let _cargado = { ventas: false, remis: false, caja: false };
+function cargandoDatos() {
+  return !!getSavedFirebaseConfig() && !(_cargado.ventas && _cargado.remis && _cargado.caja);
+}
+function terminoCarga(clave) {
+  if (_cargado[clave]) return;
+  _cargado[clave] = true;
+  if (!cargandoDatos()) renderInicio();
+}
 let firebaseConnected = false;
 
 /* ================= FIREBASE / NUBE ================= */
@@ -216,7 +227,9 @@ function attachListeners() {
       total
     };
     renderCaja();
+    terminoCarga('caja');
   }, () => {
+    terminoCarga('caja');
     showToast('No se pudo leer la caja de la nube');
   });
   db.collection('doldichipa_ventas').orderBy('ts', 'desc').limit(1000).onSnapshot(snap => {
@@ -228,7 +241,9 @@ function attachListeners() {
     renderStock();
     renderResumen();
     renderDebe();
+    terminoCarga('ventas');
   }, () => {
+    terminoCarga('ventas');
     showToast('No se pudo leer el historial de ventas');
   });
   db.collection('doldichipa_remis').orderBy('ts', 'desc').limit(1000).onSnapshot(snap => {
@@ -238,7 +253,9 @@ function attachListeners() {
     }));
     renderRemis();
     renderResumen();
+    terminoCarga('remis');
   }, () => {
+    terminoCarga('remis');
     showToast('No se pudo leer los movimientos de Remis');
   });
   db.collection('doldichipa_premios').orderBy('costoPuntos', 'asc').onSnapshot(snap => {
@@ -274,13 +291,21 @@ function initFirebase(cfg) {
       firebase.initializeApp(cfg);
     }
     db = firebase.firestore();
+    // Guarda una copia de los datos en el celular: al abrir la app se muestra al
+    // instante lo último que había y después se actualiza con la nube. Sin esto,
+    // cada vez que se abre hay que esperar a que lleguen todos los datos.
+    try {
+      db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    } catch (e) {}
     firebaseConnected = true;
     updateConnStatus(true);
     attachListeners();
   } catch (e) {
     firebaseConnected = false;
     db = null;
+    _cargado = { ventas: true, remis: true, caja: true };
     updateConnStatus(false);
+    renderInicio();
     showToast('No se pudo conectar. Revisá el texto pegado.');
   }
 }
@@ -3704,6 +3729,12 @@ function renderInicio() {
   document.getElementById('inicio-mes-label').textContent = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
   document.getElementById('inicio-mes-sig').style.opacity = mesOffsetInicio === 0 ? '0.3' : '1';
 
+  if (cargandoDatos()) {
+    ['inicio-vendiste', 'inicio-gastos', 'inicio-caja'].forEach(id => { document.getElementById(id).textContent = '…'; });
+    document.getElementById('inicio-avisos').innerHTML = '';
+    wrap.innerHTML = '<div class="empty">Cargando…</div>';
+    return;
+  }
   const ventas = STATE.ventas.filter(v => v.ts >= r.inicio && v.ts < r.fin);
   const gastos = STATE.remis.filter(m => m.ts >= r.inicio && m.ts < r.fin);
   const totalVend = ventas.reduce((s, v) => s + v.monto, 0);
