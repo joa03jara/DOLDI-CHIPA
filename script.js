@@ -2677,18 +2677,9 @@ function abrirPedidoForm(editId) {
   renderPedidoItems();
   renderPedidoEnvioOpts();
   actualizarVisibilidadDireccion();
-  // El cliente es opcional: el campo queda escondido hasta que se lo pide, así
-  // no aparece el teclado ni sugerencias. Si el pedido ya tenía cliente, se ve.
-  const tieneCliente = !!document.getElementById('ped-cliente').value;
-  document.getElementById('ped-cliente-wrap').style.display = tieneCliente ? 'block' : 'none';
-  document.getElementById('ped-cliente-btn').style.display = tieneCliente ? 'none' : 'block';
+  // El cliente se escribe a mano y es obligatorio (no se sugieren nombres).
+  document.getElementById('ped-cliente').style.borderColor = '';
   mostrarOverlay('overlay-pedido-form');
-}
-
-function mostrarClientePedido() {
-  document.getElementById('ped-cliente-btn').style.display = 'none';
-  document.getElementById('ped-cliente-wrap').style.display = 'block';
-  document.getElementById('ped-cliente').focus();
 }
 
 // La ubicación solo tiene sentido si el pedido lleva envío.
@@ -2759,6 +2750,14 @@ function actualizarTotalPedidoForm() {
 }
 
 function validarPedidoForm() {
+  const clienteInput = document.getElementById('ped-cliente');
+  if (!clienteInput.value.trim()) {
+    clienteInput.style.borderColor = 'var(--red)';
+    showToast('Escribí el nombre del cliente');
+    clienteInput.focus();
+    return false;
+  }
+  clienteInput.style.borderColor = '';
   if (pedidoItemsActual.length === 0) {
     showToast('Agregá al menos un producto al pedido');
     return false;
