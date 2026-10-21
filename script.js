@@ -2659,7 +2659,7 @@ function abrirPedidoForm(editId) {
   if (editId) {
     const pedido = STATE.pedidos.find(p => p.id === editId);
     if (!pedido) return;
-    document.getElementById('ped-cliente').value = pedido.cliente || '';
+    document.getElementById('ped-cliente').value = (pedido.cliente && pedido.cliente.toLowerCase() !== 'sin nombre') ? pedido.cliente : '';
     document.getElementById('ped-direccion').value = pedido.direccion || '';
     pedidoItemsActual = (pedido.items || []).map(i => ({ ...i
     }));
@@ -2677,21 +2677,9 @@ function abrirPedidoForm(editId) {
   renderPedidoItems();
   renderPedidoEnvioOpts();
   actualizarVisibilidadDireccion();
-  actualizarDatalistClientes();
+  // El cliente se escribe a mano y es obligatorio (no se sugieren nombres).
+  document.getElementById('ped-cliente').style.borderColor = '';
   mostrarOverlay('overlay-pedido-form');
-}
-
-// Sugiere clientes ya usados antes (nombre + teléfono juntos, tal como se
-// escribieron) para no tener que tipear el número de nuevo cada vez.
-function actualizarDatalistClientes() {
-  const nombres = new Set();
-  STATE.pedidos.forEach(p => {
-    if (p.cliente && p.cliente.trim() && p.cliente.trim().toLowerCase() !== 'sin nombre') {
-      nombres.add(p.cliente.trim());
-    }
-  });
-  const datalist = document.getElementById('clientes-datalist');
-  datalist.innerHTML = Array.from(nombres).sort().map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
 }
 
 // La ubicación solo tiene sentido si el pedido lleva envío.
@@ -2762,6 +2750,14 @@ function actualizarTotalPedidoForm() {
 }
 
 function validarPedidoForm() {
+  const clienteInput = document.getElementById('ped-cliente');
+  if (!clienteInput.value.trim()) {
+    clienteInput.style.borderColor = 'var(--red)';
+    showToast('Escribí el nombre del cliente');
+    clienteInput.focus();
+    return false;
+  }
+  clienteInput.style.borderColor = '';
   if (pedidoItemsActual.length === 0) {
     showToast('Agregá al menos un producto al pedido');
     return false;
