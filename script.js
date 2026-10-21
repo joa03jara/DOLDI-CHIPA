@@ -1707,7 +1707,7 @@ function renderPorConcepto(arr, categoria) {
         <button onclick="eliminarRemisUI('${m.id}')" aria-label="Borrar">✕</button></div>`).join('')}</div>` : '';
     return `<div class="gasto-prod">
       <div class="gp-top" onclick="toggleConceptoGasto('${claveEsc}')">
-        <span><span class="gp-emoji">${g.items[0].emoji || iconoAutoGasto(g.nombre) || (categoria === 'insumos' ? '📦' : '🛍️')}</span>${g.nombre} <small>· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</small></span>
+        <span><span class="gp-emoji">${g.items[0].emoji || iconoAutoGasto(g.nombre) || (categoria === 'insumos' ? '🛒' : '🛍')}</span>${g.nombre} <small>· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</small></span>
         <span>${fmtMoney(g.total)}</span>
       </div>
       <div class="gp-bar"><i style="width:${Math.max(g.total / maximo * 100, 3)}%; background:${color};"></i></div>
@@ -1851,7 +1851,7 @@ function iconoAutoGasto(concepto) {
   return elegido;
 }
 let gastoCatActual = 'Comida';
-let gastoEmojiActual = '📦';
+let gastoEmojiActual = '🛒';
 let gastoEmojiManual = false; // true si el usuario eligió el ícono a mano
 
 function seleccionarEmojiGasto(e) {
@@ -1872,7 +1872,7 @@ function elegirEmojiGasto(e) {
 // Mientras se escribe el nombre del gasto, el ícono se elige solo ("sal" → 🧂).
 function autoIconoGasto() {
   if (gastoEmojiManual) return;
-  const porDefecto = remisMovCategoria === 'insumos' ? '📦' : '🛒';
+  const porDefecto = remisMovCategoria === 'insumos' ? '🛒' : '🛍';
   seleccionarEmojiGasto(iconoAutoGasto(document.getElementById('remis-mov-concepto').value) || porDefecto);
 }
 
@@ -1917,7 +1917,7 @@ function abrirRemisMov(categoria) {
   gastoCatActual = 'Compras y casa';
   document.getElementById('gasto-emoji-buscar').value = '';
   gastoEmojiManual = false;
-  gastoEmojiActual = categoria === 'insumos' ? '📦' : '🛒';
+  gastoEmojiActual = categoria === 'insumos' ? '🛒' : '🛍';
   document.getElementById('gasto-picker').style.display = 'none';
   pintarEmojisGasto();
   seleccionarEmojiGasto(gastoEmojiActual);
