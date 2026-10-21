@@ -1435,3 +1435,10 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .stock-actual b { color: var(--text); font-size: 17px; }
 .stock-quedaria { min-height: 22px; text-align: center; color: var(--text-2); font-size: 14px; margin: 12px 0 8px; }
 .stock-quedaria b { color: var(--text); }
+
+/* ===== Gasto: ícono automático junto al nombre ===== */
+.gasto-nombre-row { display: flex; gap: 10px; align-items: stretch; }
+.gasto-nombre-row .campo-simple { flex: 1; min-width: 0; }
+.gasto-icono-btn { flex-shrink: 0; width: 54px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg); font-size: 26px; line-height: 1; padding: 0; cursor: pointer; }
+.gasto-icono-btn:active { transform: scale(.96); }
+#gasto-picker { margin-top: 10px; }

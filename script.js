@@ -1707,7 +1707,7 @@ function renderPorConcepto(arr, categoria) {
         <button onclick="eliminarRemisUI('${m.id}')" aria-label="Borrar">✕</button></div>`).join('')}</div>` : '';
     return `<div class="gasto-prod">
       <div class="gp-top" onclick="toggleConceptoGasto('${claveEsc}')">
-        <span><span class="gp-emoji">${g.items[0].emoji || iconoAutoGasto(g.nombre) || (categoria === 'insumos' ? '📦' : '🛍️')}</span>${g.nombre} <small>· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</small></span>
+        <span><span class="gp-emoji">${g.items[0].emoji || iconoAutoGasto(g.nombre) || (categoria === 'insumos' ? '🛒' : '🛍')}</span>${g.nombre} <small>· ${g.items.length} ${g.items.length === 1 ? 'vez' : 'veces'}</small></span>
         <span>${fmtMoney(g.total)}</span>
       </div>
       <div class="gp-bar"><i style="width:${Math.max(g.total / maximo * 100, 3)}%; background:${color};"></i></div>
@@ -1820,35 +1820,65 @@ const EMOJIS_GASTO_NOMBRES = {"🍅": "tomate", "🍆": "berenjena", "🍇": "uv
 // Para gastos viejos sin ícono: busca un ícono cuyo nombre tenga la misma
 // palabra que el gasto ("Queso" → 🧀). Palabra completa, así "moto" no cae
 // en "locomotora". Si hay varios, gana el de nombre más corto (el más específico).
-const _ICONOS_PREFERIDOS = { comida: '🍽', ropa: '👕', bolsa: '🛍', bolsas: '🛍', pan: '🍞', agua: '💧', margarina: '🧈', carne: '🥩', pantalon: '👖', zapatillas: '👟', boleta: '🧾', alquiler: '🏠', bebida: '🥤', gaseosa: '🥤', cerveza: '🍺' };
+const _ICONOS_PREFERIDOS = {"sal": "🧂", "azucar": "🍬", "leche": "🥛", "harina": "🌾", "almidon": "🌾", "huevo": "🥚", "huevos": "🥚", "fideo": "🍝", "fideos": "🍝", "tallarin": "🍝", "tallarines": "🍝", "arroz": "🍚", "aceite": "🧴", "pan": "🍞", "panes": "🍞", "levadura": "🍞", "manteca": "🧈", "margarina": "🧈", "crema": "🥛", "queso": "🧀", "muzzarella": "🧀", "mozzarella": "🧀", "mozarela": "🧀", "cremoso": "🧀", "rallado": "🧀", "jamon": "🍖", "fiambre": "🍖", "salame": "🍖", "carne": "🥩", "asado": "🥩", "milanesa": "🥩", "pollo": "🍗", "pescado": "🐟", "tomate": "🍅", "cebolla": "🧅", "ajo": "🧄", "papa": "🥔", "papas": "🥔", "batata": "🍠", "zanahoria": "🥕", "zapallo": "🥕", "choclo": "🌽", "lechuga": "🥬", "verdura": "🥕", "verduras": "🥕", "fruta": "🍎", "frutas": "🍎", "limon": "🍋", "naranja": "🍊", "manzana": "🍎", "banana": "🍌", "frutilla": "🍓", "uva": "🍇", "durazno": "🍑", "palta": "🥑", "mayonesa": "🥫", "ketchup": "🥫", "mostaza": "🌭", "vinagre": "🍶", "pimienta": "🌶", "aji": "🌶", "oregano": "🌿", "perejil": "🌿", "dulce": "🍬", "caramelo": "🍬", "miel": "🍯", "chocolate": "🍫", "cacao": "🍫", "galletita": "🍪", "galletitas": "🍪", "galleta": "🍪", "gaseosa": "🥤", "coca": "🥤", "bebida": "🥤", "jugo": "🧃", "soda": "💧", "agua": "💧", "cerveza": "🍺", "birra": "🍺", "vino": "🍷", "cafe": "☕", "te": "🍵", "yerba": "🧉", "mate": "🧉", "helado": "🍦", "torta": "🍰", "pizza": "🍕", "empanada": "🥟", "empanadas": "🥟", "hamburguesa": "🍔", "fritas": "🍟", "sandwich": "🥪", "chipa": "🧀", "factura": "🥐", "facturas": "🥐", "medialuna": "🥐", "medialunas": "🥐", "croissant": "🥐", "comida": "🍽", "almuerzo": "🍽", "cena": "🍽", "desayuno": "☕", "merienda": "☕", "dulce de leche": "🍯", "papas fritas": "🍟", "polvo de hornear": "🍞", "azucar impalpable": "🍬", "jugo de naranja": "🍊", "bolsa": "🛍", "bolsas": "🛍", "envase": "📦", "envases": "📦", "caja": "📦", "cajas": "📦", "packaging": "📦", "etiqueta": "🏷", "etiquetas": "🏷", "cinta": "🧵", "servilleta": "🧻", "servilletas": "🧻", "papel": "🧻", "rollo": "🧻", "film": "🧻", "aluminio": "🧻", "detergente": "🧴", "lavandina": "🧴", "jabon": "🧼", "esponja": "🧽", "trapo": "🧽", "escoba": "🧹", "basura": "🗑", "limpieza": "🧼", "descartable": "🥤", "descartables": "🥤", "gas": "🔥", "garrafa": "🔥", "nafta": "⛽", "gasoil": "⛽", "combustible": "⛽", "luz": "💡", "electricidad": "💡", "internet": "💻", "wifi": "💻", "celular": "📱", "telefono": "📱", "recarga": "📱", "alquiler": "🏠", "expensas": "🏠", "impuesto": "🧾", "impuestos": "🧾", "boleta": "🧾", "ticket": "🧾", "moto": "🏍", "auto": "🚗", "taller": "🔧", "repuesto": "🔧", "repuestos": "🔧", "mecanico": "🔧", "herramienta": "🔧", "herramientas": "🔧", "lavado": "🧼", "ropa": "👕", "remera": "👕", "pantalon": "👖", "jean": "👖", "zapatillas": "👟", "zapatos": "👞", "medias": "🧦", "campera": "🧥", "remedio": "💊", "remedios": "💊", "farmacia": "💊", "medico": "🩺", "dentista": "🦷", "peluqueria": "💈", "corte": "✂", "regalo": "🎁", "cumpleanos": "🎂", "juguete": "🧸", "juguetes": "🧸", "super": "🛒", "supermercado": "🛒", "mercado": "🛒", "compras": "🛍", "pasaje": "🚌", "colectivo": "🚌", "taxi": "🚕", "uber": "🚕", "cine": "🎬", "netflix": "🎬", "salida": "🍻", "mascota": "🐶", "perro": "🐶", "gato": "🐱", "veterinario": "🐶", "colegio": "🎓", "curso": "🎓", "libro": "📚", "libros": "📚", "utiles": "✏"};
 const _cacheIconoGasto = {};
 function iconoAutoGasto(concepto) {
   const k = normalizarConcepto(concepto);
   if (!k) return null;
   if (k in _cacheIconoGasto) return _cacheIconoGasto[k];
-  let elegido = null;
-  for (const palabra of k.split(' ').filter(w => w.length >= 3)) {
-    const pref = _ICONOS_PREFERIDOS[palabra];
-    if (pref && pref in EMOJIS_GASTO_NOMBRES) { elegido = pref; break; }
-    const variantes = [palabra, palabra.replace(/(es|s)$/, '')].filter(v => v.length >= 3);
+  const valido = e => e && e in EMOJIS_GASTO_NOMBRES ? e : null;
+  const variantesDe = p => [p, p.replace(/es$/, ''), p.replace(/s$/, '')].filter(v => v.length >= 2);
+  let elegido = valido(_ICONOS_PREFERIDOS[k]); // la frase completa primero ("dulce de leche")
+  const palabras = k.split(' ').filter(w => w.length >= 2);
+  // después cada palabra, con la lista de palabras de uso diario
+  for (let i = 0; !elegido && i < palabras.length; i++) {
+    for (const v of variantesDe(palabras[i])) {
+      elegido = valido(_ICONOS_PREFERIDOS[v]);
+      if (elegido) break;
+    }
+  }
+  // y por último, buscando la palabra en el nombre de cada ícono
+  for (let i = 0; !elegido && i < palabras.length; i++) {
+    if (palabras[i].length < 3) continue;
+    const variantes = variantesDe(palabras[i]).filter(v => v.length >= 3);
     let mejorLargo = Infinity;
     for (const e in EMOJIS_GASTO_NOMBRES) {
       const toks = normalizarConcepto(EMOJIS_GASTO_NOMBRES[e]).split(' ');
       if (toks.length < mejorLargo && variantes.some(v => toks.includes(v))) { elegido = e; mejorLargo = toks.length; }
     }
-    if (elegido) break;
   }
   _cacheIconoGasto[k] = elegido;
   return elegido;
 }
 let gastoCatActual = 'Comida';
-let gastoEmojiActual = '📦';
+let gastoEmojiActual = '🛒';
+let gastoEmojiManual = false; // true si el usuario eligió el ícono a mano
 
 function seleccionarEmojiGasto(e) {
   gastoEmojiActual = e;
+  const btn = document.getElementById('gasto-icono-btn');
+  if (btn) btn.textContent = e;
   document.querySelectorAll('#gasto-emoji-grid .emoji-opt').forEach(el => {
     el.classList.toggle('active', el.dataset.e === e);
   });
+}
+
+// Elegir un ícono a mano: desde ahí el nombre ya no lo cambia.
+function elegirEmojiGasto(e) {
+  gastoEmojiManual = true;
+  seleccionarEmojiGasto(e);
+}
+
+// Mientras se escribe el nombre del gasto, el ícono se elige solo ("sal" → 🧂).
+function autoIconoGasto() {
+  if (gastoEmojiManual) return;
+  const porDefecto = remisMovCategoria === 'insumos' ? '🛒' : '🛍';
+  seleccionarEmojiGasto(iconoAutoGasto(document.getElementById('remis-mov-concepto').value) || porDefecto);
+}
+
+function togglePickerIcono() {
+  const p = document.getElementById('gasto-picker');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
 }
 
 function pintarEmojisGasto() {
@@ -1865,7 +1895,7 @@ function pintarEmojisGasto() {
     lista = EMOJIS_GASTO_CATS[gastoCatActual];
   }
   document.getElementById('gasto-emoji-grid').innerHTML = lista.length
-    ? lista.map(e => `<div class="emoji-opt" data-e="${e}" onclick="seleccionarEmojiGasto('${e}')">${e}</div>`).join('')
+    ? lista.map(e => `<div class="emoji-opt" data-e="${e}" onclick="elegirEmojiGasto('${e}')">${e}</div>`).join('')
     : '<div class="empty" style="grid-column:1/-1;">No hay íconos con ese nombre.</div>';
   seleccionarEmojiGasto(gastoEmojiActual);
 }
@@ -1886,8 +1916,11 @@ function abrirRemisMov(categoria) {
   document.getElementById('remis-mov-concepto').style.borderColor = 'var(--border)';
   gastoCatActual = 'Compras y casa';
   document.getElementById('gasto-emoji-buscar').value = '';
-  gastoEmojiActual = categoria === 'insumos' ? '📦' : '🛒';
+  gastoEmojiManual = false;
+  gastoEmojiActual = categoria === 'insumos' ? '🛒' : '🛍';
+  document.getElementById('gasto-picker').style.display = 'none';
   pintarEmojisGasto();
+  seleccionarEmojiGasto(gastoEmojiActual);
   mostrarOverlay('overlay-remis-mov');
 }
 
