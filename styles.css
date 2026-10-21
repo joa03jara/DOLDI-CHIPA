@@ -1418,3 +1418,11 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .debe-item .acc { grid-column: 2; grid-row: 2; justify-self: end; align-self: start; width: 96px; padding: 8px 0; border: none; border-radius: 10px; background: var(--green); color: #fff; font-weight: 700; font-size: 13px; font-family: inherit; }
 .debe-item .acc:active { opacity: .8; }
 .tag-ant { display: inline-block; margin-left: 4px; padding: 2px 8px; border-radius: 10px; background: var(--orange-soft); color: var(--orange-dark); font-size: 11px; font-weight: 700; vertical-align: middle; }
+
+/* ===== Interruptor "Controlar el stock" ===== */
+.switch-row { display: flex; align-items: center; gap: 14px; padding: 6px 0 14px; margin-bottom: 8px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.switch { -webkit-appearance: none; appearance: none; flex-shrink: 0; width: 52px; height: 30px; border-radius: 15px; background: var(--border); position: relative; transition: background .2s; cursor: pointer; border: none; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.switch:checked { background: var(--green); }
+.switch:checked::after { transform: translateX(22px); }
+.stock-apagado { opacity: .45; }
