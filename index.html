@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261020a">
+  <link rel="stylesheet" href="styles.css?v=20261021a">
 </head>
 
 <body>
@@ -686,10 +686,10 @@
     <div class="sheet sheet-wrap">
       <button class="close" onclick="cerrarModal('overlay-pedido-form')">✕</button>
       <h3 id="pedido-form-title">Nuevo pedido</h3>
-      <div class="form-field">
-        <label>Cliente (opcional — nombre o teléfono)</label>
-        <input type="text" id="ped-cliente" list="clientes-datalist" placeholder="Ej: María / 11-2345-6789">
-        <datalist id="clientes-datalist"></datalist>
+      <button class="link-agregar" id="ped-cliente-btn" onclick="mostrarClientePedido()">+ Agregar cliente (opcional)</button>
+      <div class="form-field" id="ped-cliente-wrap" style="display:none;">
+        <label for="ped-cliente">Cliente</label>
+        <input type="text" id="ped-cliente" autocomplete="off" autocapitalize="words">
       </div>
       <button class="btn btn-ghost btn-block" onclick="abrirElegirProducto('pedido')">+ Agregar producto</button>
       <div id="ped-items-lista" style="margin-top:10px;"></div>
@@ -788,7 +788,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261020c"></script>
+  <script src="script.js?v=20261021a"></script>
 </body>
 
 </html>

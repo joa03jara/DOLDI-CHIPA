@@ -2659,7 +2659,7 @@ function abrirPedidoForm(editId) {
   if (editId) {
     const pedido = STATE.pedidos.find(p => p.id === editId);
     if (!pedido) return;
-    document.getElementById('ped-cliente').value = pedido.cliente || '';
+    document.getElementById('ped-cliente').value = (pedido.cliente && pedido.cliente.toLowerCase() !== 'sin nombre') ? pedido.cliente : '';
     document.getElementById('ped-direccion').value = pedido.direccion || '';
     pedidoItemsActual = (pedido.items || []).map(i => ({ ...i
     }));
@@ -2677,21 +2677,18 @@ function abrirPedidoForm(editId) {
   renderPedidoItems();
   renderPedidoEnvioOpts();
   actualizarVisibilidadDireccion();
-  actualizarDatalistClientes();
+  // El cliente es opcional: el campo queda escondido hasta que se lo pide, así
+  // no aparece el teclado ni sugerencias. Si el pedido ya tenía cliente, se ve.
+  const tieneCliente = !!document.getElementById('ped-cliente').value;
+  document.getElementById('ped-cliente-wrap').style.display = tieneCliente ? 'block' : 'none';
+  document.getElementById('ped-cliente-btn').style.display = tieneCliente ? 'none' : 'block';
   mostrarOverlay('overlay-pedido-form');
 }
 
-// Sugiere clientes ya usados antes (nombre + teléfono juntos, tal como se
-// escribieron) para no tener que tipear el número de nuevo cada vez.
-function actualizarDatalistClientes() {
-  const nombres = new Set();
-  STATE.pedidos.forEach(p => {
-    if (p.cliente && p.cliente.trim() && p.cliente.trim().toLowerCase() !== 'sin nombre') {
-      nombres.add(p.cliente.trim());
-    }
-  });
-  const datalist = document.getElementById('clientes-datalist');
-  datalist.innerHTML = Array.from(nombres).sort().map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
+function mostrarClientePedido() {
+  document.getElementById('ped-cliente-btn').style.display = 'none';
+  document.getElementById('ped-cliente-wrap').style.display = 'block';
+  document.getElementById('ped-cliente').focus();
 }
 
 // La ubicación solo tiene sentido si el pedido lleva envío.
