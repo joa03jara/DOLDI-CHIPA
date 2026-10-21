@@ -3447,54 +3447,30 @@ async function confirmarVentaInterno() {
 /* ================= STOCK: agregar / corregir / vaciar (todo junto) ================= */
 let editarStockProd = null;
 
-let modoStock = 'sumar'; // 'sumar' | 'total'
-
+// El stock se reemplaza: lo que se escribe pasa a ser la cantidad que hay.
 function abrirEditarStock(prod) {
   editarStockProd = prod;
   const p = STATE.productos[prod];
   if (!p) return;
   document.getElementById('editar-stock-title').textContent = p.label;
-  document.getElementById('stock-actual').innerHTML = 'Tenés <b>' + fmtCantidad(prod, STATE.stock[prod] || 0) + '</b>';
+  document.getElementById('stock-actual').textContent = p.unit;
   const input = document.getElementById('stock-cant');
-  input.value = '';
+  input.value = STATE.stock[prod] || 0; // queda escrito el número de hoy; se cambia y listo
   input.style.borderColor = '';
-  elegirModoStock('sumar');
   mostrarOverlay('overlay-editar-stock');
-}
-
-function elegirModoStock(modo) {
-  modoStock = modo;
-  document.getElementById('stock-modo-sumar').classList.toggle('active', modo === 'sumar');
-  document.getElementById('stock-modo-total').classList.toggle('active', modo === 'total');
-  actualizarPreviewStock();
-}
-
-// Muestra cómo va a quedar el stock antes de guardar.
-function actualizarPreviewStock() {
-  const input = document.getElementById('stock-cant');
-  const prev = document.getElementById('stock-quedaria');
-  const raw = input.value.trim();
-  const val = Number(raw);
-  if (raw === '' || isNaN(val) || val < 0) {
-    prev.textContent = '';
-    return;
-  }
-  const nuevo = modoStock === 'sumar' ? (STATE.stock[editarStockProd] || 0) + val : val;
-  prev.innerHTML = 'Va a quedar en <b>' + fmtCantidad(editarStockProd, nuevo) + '</b>';
 }
 
 async function guardarStock() {
   const input = document.getElementById('stock-cant');
   const raw = input.value.trim();
   const val = Number(raw);
-  const invalido = raw === '' || isNaN(val) || val < 0 || (modoStock === 'sumar' && val === 0);
-  if (invalido) {
+  if (raw === '' || isNaN(val) || val < 0) {
     input.style.borderColor = 'var(--red)';
-    showToast(modoStock === 'sumar' ? 'Escribí cuánto querés sumar' : 'Escribí el total que hay');
+    showToast('Escribí la cantidad que hay');
     return;
   }
   input.style.borderColor = '';
-  STATE.stock[editarStockProd] = modoStock === 'sumar' ? (STATE.stock[editarStockProd] || 0) + val : val;
+  STATE.stock[editarStockProd] = val;
   cerrarModal('overlay-editar-stock');
   renderStock();
   renderVender();

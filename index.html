@@ -570,19 +570,14 @@
     </div>
   </div>
 
-  <!-- STOCK: sumar o poner el total -->
+  <!-- STOCK: cantidad que hay (se reemplaza) -->
   <div class="overlay" id="overlay-editar-stock">
     <div class="sheet sheet-wrap">
       <button class="close" onclick="cerrarModal('overlay-editar-stock')">✕</button>
       <h3 id="editar-stock-title">Stock</h3>
       <div class="stock-actual" id="stock-actual"></div>
-      <div class="monto-grande"><input type="number" inputmode="decimal" id="stock-cant" step="0.5" min="0" oninput="actualizarPreviewStock()" autocomplete="off" aria-label="Cantidad" style="width:70%;"></div>
-      <div class="segmented">
-        <button class="active" id="stock-modo-sumar" onclick="elegirModoStock('sumar')">Sumar</button>
-        <button id="stock-modo-total" onclick="elegirModoStock('total')">Poner total</button>
-      </div>
-      <div class="stock-quedaria" id="stock-quedaria"></div>
-      <button class="btn btn-gold btn-block" style="margin-top:6px;" onclick="guardarStock()">Guardar</button>
+      <div class="monto-grande"><input type="number" inputmode="decimal" id="stock-cant" step="0.5" min="0" onfocus="this.select()" autocomplete="off" aria-label="Cantidad" style="width:70%;"></div>
+      <button class="btn btn-gold btn-block" style="margin-top:14px;" onclick="guardarStock()">Guardar</button>
     </div>
   </div>
 
@@ -788,7 +783,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261022a"></script>
+  <script src="script.js?v=20261022b"></script>
 </body>
 
 </html>
