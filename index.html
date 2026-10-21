@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261021b">
+  <link rel="stylesheet" href="styles.css?v=20261021c">
 </head>
 
 <body>
@@ -230,7 +230,8 @@
     <!-- DEBE (quién me debe plata) -->
     <section class="tab-panel" id="tab-debe">
       <div class="section-title">Debe</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Pedidos entregados que todavía no te pagaron.</p>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Pedidos entregados que todavía no te pagaron y deudas anteriores del cuaderno.</p>
+      <button class="btn btn-gold btn-block" onclick="abrirCobrarForm()">+ Anotar deuda anterior</button>
       <div class="total-banner">
         <div class="big" id="debe-total">$0</div>
         <div class="lbl">Total que te deben</div>
@@ -612,6 +613,19 @@
     </div>
   </div>
 
+  <!-- DEUDA ANTERIOR (me deben, del cuaderno) -->
+  <div class="overlay" id="overlay-cobrar-form">
+    <div class="sheet sheet-wrap">
+      <button class="close" onclick="cerrarModal('overlay-cobrar-form')">✕</button>
+      <h3>Deuda anterior</h3>
+      <p class="muted" style="margin:0 0 4px;">Plata que te deben de antes del sistema. No cuenta como venta.</p>
+      <div class="monto-grande"><span>$</span><input type="text" inputmode="numeric" id="cobrar-monto" oninput="formatMiles(this)" autocomplete="off" aria-label="Monto"></div>
+      <label class="campo-label" for="cobrar-cliente">Quién te debe</label>
+      <input type="text" class="campo-simple" id="cobrar-cliente" autocomplete="off" autocapitalize="words">
+      <button class="btn btn-gold btn-block" style="margin-top:16px;" onclick="confirmarCobrar()">Guardar</button>
+    </div>
+  </div>
+
   <!-- NUEVA DEUDA (Debo) -->
   <div class="overlay" id="overlay-debo-form">
     <div class="sheet sheet-wrap">
@@ -787,7 +801,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261021b"></script>
+  <script src="script.js?v=20261021c"></script>
 </body>
 
 </html>

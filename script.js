@@ -86,6 +86,7 @@ let STATE = {
   clientes: [],
   pedidos: [],
   debo: [],
+  cobrar: [],
   caja: {
     total: 0
   },
@@ -178,6 +179,17 @@ function attachListeners() {
     if (document.getElementById('tab-pedidos').classList.contains('active')) renderPedidos();
   }, () => {
     showToast('No se pudieron leer los pedidos de la nube');
+  });
+  // Deudas anteriores que te deben (del cuaderno de antes del sistema): no son
+  // ventas, así que no suman a "Vendiste" ni tocan el stock.
+  db.collection('doldichipa_cobrar').orderBy('creadoTs', 'asc').onSnapshot(snap => {
+    STATE.cobrar = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+    renderDebe();
+  }, () => {
+    showToast('No se pudieron leer las deudas anteriores');
   });
   db.collection('doldichipa_debo').orderBy('creadoTs', 'asc').onSnapshot(snap => {
     STATE.debo = snap.docs.map(d => ({
@@ -2083,18 +2095,20 @@ function renderDebe() {
   if (!wrap) return;
 
   const pendientes = STATE.ventas.filter(v => v.pagado === false).sort((a, b) => a.ts - b.ts); // más viejo primero
-  const total = pendientes.reduce((s, v) => s + v.monto, 0);
+  const anteriores = STATE.cobrar || [];
+  const total = pendientes.reduce((s, v) => s + v.monto, 0) + anteriores.reduce((s, d) => s + d.monto, 0);
   if (totalEl) totalEl.textContent = fmtMoney(total);
+  const cantidad = pendientes.length + anteriores.length;
   if (badgeEl) {
-    if (pendientes.length > 0) {
+    if (cantidad > 0) {
       badgeEl.style.display = 'inline-block';
-      badgeEl.textContent = pendientes.length;
+      badgeEl.textContent = cantidad;
     } else {
       badgeEl.style.display = 'none';
     }
   }
 
-  if (pendientes.length === 0) {
+  if (cantidad === 0) {
     wrap.innerHTML = '<div class="empty">Nadie te debe nada por ahora 🎉</div>';
     return;
   }
@@ -2110,7 +2124,7 @@ function renderDebe() {
   };
 
   const subgrupos = agruparVentasPorPedido(pendientes);
-  wrap.innerHTML = subgrupos.map(sg => {
+  const htmlVentas = subgrupos.map(sg => {
     const nombre = sg.items[0].clienteNombre || 'Sin nombre';
     const nombresTxt = sg.items.map(i => {
       const nombreProd = STATE.productos[i.prod] ? STATE.productos[i.prod].label : i.prod;
@@ -2126,6 +2140,82 @@ function renderDebe() {
       <button class="btn btn-sm btn-green" style="padding:6px 10px; margin-left:8px;" onclick='marcarVentaPagada(${idsJson}, ${sg.monto})'>Marcar pagado</button>
     </div>`;
   }).join('');
+  const htmlAnteriores = anteriores.map(d => `<div class="venta-item">
+      <div style="flex:1;">
+        <div class="p">${d.cliente}</div>
+        <div class="t">Deuda anterior · ${haceTexto(ahora - (d.creadoTs || ahora))}</div>
+      </div>
+      <div class="m">${fmtMoney(d.monto)}</div>
+      <button class="btn btn-sm btn-green" style="padding:6px 10px; margin-left:8px;" onclick="marcarCobrarPagadoUI('${d.id}', '${(d.cliente || '').replace(/'/g, "\\'")}')">Me pagó</button>
+    </div>`).join('');
+  wrap.innerHTML = htmlVentas + htmlAnteriores;
+}
+
+// ---- Deudas anteriores (cuaderno de antes del sistema) ----
+function abrirCobrarForm() {
+  document.getElementById('cobrar-cliente').value = '';
+  document.getElementById('cobrar-monto').value = '';
+  document.getElementById('cobrar-cliente').style.borderColor = 'var(--border)';
+  document.getElementById('cobrar-monto').style.borderColor = '';
+  mostrarOverlay('overlay-cobrar-form');
+}
+
+async function confirmarCobrar() {
+  const clienteInput = document.getElementById('cobrar-cliente');
+  const montoInput = document.getElementById('cobrar-monto');
+  const cliente = clienteInput.value.trim();
+  const monto = parseMiles(montoInput.value);
+  clienteInput.style.borderColor = !cliente ? 'var(--red)' : 'var(--border)';
+  montoInput.style.borderColor = (!monto || monto <= 0) ? 'var(--red)' : '';
+  if (!cliente || !monto || monto <= 0) {
+    showToast('Completá: ' + [!cliente ? 'Cliente' : '', (!monto || monto <= 0) ? 'Monto' : ''].filter(Boolean).join(', '));
+    return;
+  }
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
+    return;
+  }
+  cerrarModal('overlay-cobrar-form');
+  try {
+    await db.collection('doldichipa_cobrar').add({ cliente, monto, creadoTs: Date.now() });
+    showToastExito('Anotado: te debe ' + fmtMoney(monto));
+  } catch (e) {
+    showToast('⚠️ Esa deuda no llegó a guardarse en la nube, revisala');
+  }
+}
+
+function marcarCobrarPagadoUI(id, cliente) {
+  const d = (STATE.cobrar || []).find(x => x.id === id);
+  confirmarAccion(
+    '¿Te pagó ' + cliente + '?',
+    'Se suman ' + fmtMoney(d ? d.monto : 0) + ' a tu Caja. No cuenta como venta de hoy.',
+    () => marcarCobrarPagadoConfirmado(id)
+  );
+}
+
+const _cobrosEnProceso = new Set();
+async function marcarCobrarPagadoConfirmado(id) {
+  if (_cobrosEnProceso.has(id)) return; // evita sumar dos veces si se toca más de una vez
+  const d = (STATE.cobrar || []).find(x => x.id === id);
+  if (!d) return;
+  if (!db) {
+    showToast('No está conectado a la nube (menú → Configuración)');
+    return;
+  }
+  _cobrosEnProceso.add(id);
+  try {
+    await db.collection('doldichipa_cobrar').doc(id).delete();
+    STATE.cobrar = STATE.cobrar.filter(x => x.id !== id);
+    STATE.caja.total = (STATE.caja.total || 0) + d.monto;
+    renderDebe();
+    renderCaja();
+    showToastExito('Cobrado · ' + fmtMoney(d.monto) + ' más en la Caja');
+    await saveCaja();
+  } catch (e) {
+    showToast('No se pudo registrar el cobro, probá de nuevo');
+  } finally {
+    _cobrosEnProceso.delete(id);
+  }
 }
 
 // Marca como pagadas una o más ventas (las de un mismo pedido) y recién en
@@ -2242,13 +2332,16 @@ function marcarDeboPagadoUI(id, concepto) {
 
 // Pagar una deuda es plata que sale: se descuenta de la Caja y queda como gasto
 // personal, así Inicio (Gastos y Caja) sigue cuadrando. Se borra de "Debo".
+const _deudasEnProceso = new Set();
 async function marcarDeboPagadoConfirmado(id) {
+  if (_deudasEnProceso.has(id)) return; // evita registrar el mismo pago varias veces si se toca más de una vez
   if (!db) {
     showToast('No está conectado a la nube (menú → Configuración)');
     return;
   }
   const deuda = STATE.debo.find(d => d.id === id);
   if (!deuda) return;
+  _deudasEnProceso.add(id);
   try {
     const batch = db.batch();
     batch.set(db.collection('doldichipa_remis').doc(), {
@@ -2261,12 +2354,16 @@ async function marcarDeboPagadoConfirmado(id) {
     });
     batch.delete(db.collection('doldichipa_debo').doc(id));
     await batch.commit();
+    STATE.debo = STATE.debo.filter(d => d.id !== id);
+    renderDebo();
     STATE.caja.total = (STATE.caja.total || 0) - deuda.monto;
     renderCaja();
     showToastExito('Deuda pagada: ' + fmtMoney(deuda.monto) + ' menos en la Caja');
     await saveCaja();
   } catch (e) {
     showToast('No se pudo registrar el pago, probá de nuevo');
+  } finally {
+    _deudasEnProceso.delete(id);
   }
 }
 
@@ -3631,7 +3728,7 @@ function renderInicio() {
   document.getElementById('inicio-caja').textContent = fmtMoney(STATE.caja.total || 0);
 
   // Avisos rápidos (solo los que tienen algo)
-  const meDeben = STATE.ventas.filter(v => v.pagado === false).reduce((s, v) => s + v.monto, 0);
+  const meDeben = STATE.ventas.filter(v => v.pagado === false).reduce((s, v) => s + v.monto, 0) + (STATE.cobrar || []).reduce((s, d) => s + d.monto, 0);
   const debo = (STATE.debo || []).reduce((s, d) => s + d.monto, 0);
   const enEspera = STATE.pedidos.filter(p => p.estado === 'pendiente').length;
   let avisos = '';
@@ -3703,7 +3800,7 @@ function renderInicio() {
 function renderMas() {
   const wrap = document.getElementById('mas-lista');
   if (!wrap) return;
-  const meDeben = STATE.ventas.filter(v => v.pagado === false).reduce((s, v) => s + v.monto, 0);
+  const meDeben = STATE.ventas.filter(v => v.pagado === false).reduce((s, v) => s + v.monto, 0) + (STATE.cobrar || []).reduce((s, d) => s + d.monto, 0);
   const debo = (STATE.debo || []).reduce((s, d) => s + d.monto, 0);
   const filas = [
     ['caja', 'Caja', fmtMoney(STATE.caja.total || 0)],
