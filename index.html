@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261021f">
+  <link rel="stylesheet" href="styles.css?v=20261021g">
 </head>
 
 <body>
@@ -230,7 +230,7 @@
     <!-- DEBE (quién me debe plata) -->
     <section class="tab-panel" id="tab-debe">
       <div class="section-title">Debe</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Anotador de lo que te deben: pedidos sin cobrar y deudas anteriores. Al tachar una elegís si entra plata a la Caja o no.</p>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Es solo un anotador de lo que te deben: no toca la Caja, ni las ventas, ni el stock.</p>
       <button class="btn btn-gold btn-block" style="margin-bottom:14px;" onclick="abrirCobrarForm()">+ Anotar deuda anterior</button>
       <div class="total-banner">
         <div class="big" id="debe-total">$0</div>
@@ -242,7 +242,7 @@
     <!-- DEBO (plata que vos debés a otros) -->
     <section class="tab-panel" id="tab-debo">
       <div class="section-title">Debo</div>
-      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Anotador de lo que vos debés. Al tachar una deuda elegís si sale plata de la Caja o no.</p>
+      <p class="muted" style="margin-top:-8px; margin-bottom:14px;">Es solo un anotador de lo que vos debés: no toca la Caja, ni las ventas, ni el stock.</p>
       <button class="btn btn-gold btn-block" onclick="abrirDeboForm()">+ Nueva deuda</button>
       <div class="total-banner" style="margin-top:14px;">
         <div class="big" id="debo-total">$0</div>
@@ -613,17 +613,6 @@
     </div>
   </div>
 
-  <!-- ¿CÓMO SE SALDÓ? (con Caja o solo tachar) -->
-  <div class="overlay" id="overlay-pago">
-    <div class="sheet sheet-wrap">
-      <button class="close" onclick="cerrarModal('overlay-pago')">✕</button>
-      <h3 id="pago-titulo"></h3>
-      <div class="pago-monto" id="pago-monto"></div>
-      <button class="pago-op caja" id="pago-caja-btn"><span id="pago-caja-t"></span><small id="pago-caja-d"></small></button>
-      <button class="pago-op solo" id="pago-solo-btn"><span>Solo tacharlo</span><small>No toca la Caja, ni las ventas, ni el stock</small></button>
-    </div>
-  </div>
-
   <!-- DEUDA ANTERIOR (me deben, del cuaderno) -->
   <div class="overlay" id="overlay-cobrar-form">
     <div class="sheet sheet-wrap">
@@ -812,7 +801,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261021f"></script>
+  <script src="script.js?v=20261021g"></script>
 </body>
 
 </html>
