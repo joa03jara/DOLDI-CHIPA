@@ -1,3 +1,6 @@
+// Versión de este archivo, tomada del "?v=..." con el que lo carga index.html.
+const _APP_V = (document.currentScript && ((document.currentScript.src.match(/[?&]v=([^&]+)/)) || [])[1]) || null;
+
 /* ================= PRODUCTOS (dinámico) ================= */
 // Los productos ya no están fijos en el código: se cargan desde la nube
 // (colección doldichipa_productos) y se administran desde la pestaña "Productos".
@@ -3919,3 +3922,28 @@ function iniciarApp() {
   }
 }
 iniciarApp();
+
+/* ================= ACTUALIZACIÓN AUTOMÁTICA ================= */
+// El celular guarda copias de la página y a veces se queda con una versión vieja
+// aunque ya haya una nueva. Esto le pregunta al servidor cuál es la versión de
+// index.html (sin usar la copia guardada) y, si cambió, recarga la app sola.
+// - No recarga si hay un formulario abierto (para no perder lo que se está cargando).
+// - Intenta una sola vez por versión, así nunca entra en un bucle.
+async function buscarActualizacion() {
+  if (!_APP_V) return;
+  if (document.querySelector('.overlay.show')) return;
+  try {
+    const r = await fetch(location.pathname + '?x=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const m = (await r.text()).match(/script\.js\?v=([A-Za-z0-9]+)/);
+    if (!m || m[1] === _APP_V) return;
+    const yaIntentada = sessionStorage.getItem('doldi_actualizado_a');
+    if (yaIntentada === m[1]) return;
+    sessionStorage.setItem('doldi_actualizado_a', m[1]);
+    location.replace(location.pathname + '?v=' + m[1]);
+  } catch (e) {}
+}
+setTimeout(buscarActualizacion, 3000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') buscarActualizacion();
+});
