@@ -3130,12 +3130,12 @@ function renderPedidos() {
       const esPrimero = idx === 0;
       const href = ubicacionHref(p.direccion);
       const embedSrc = ubicacionEmbedSrc(p.direccion);
-      const tagLocalidad = p.localidad ? `<span style="background:var(--orange-soft); color:var(--orange-dark); font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; margin-left:6px;">${p.localidad}</span>` : '';
+      const tagLocalidad = p.localidad ? `<span class="tag-local">${p.localidad}</span>` : '';
       return `<div class="pedido-card ${esPrimero?'primero':''}">
         <div class="pedido-card-top">
           <div class="pedido-card-info">
             <div class="pedido-card-badges">
-              ${esPrimero ? '<span style="background:var(--orange); color:#2a1a08; font-size:11px; font-weight:800; padding:2px 8px; border-radius:20px;">SIGUE ESTE</span>' : `<span class="muted" style="font-size:12px; font-weight:700;">#${idx+1}</span>`}
+              ${esPrimero ? '<span class="tag-sigue">SIGUE ESTE</span>' : `<span class="muted" style="font-size:12px; font-weight:700;">#${idx+1}</span>`}
               <div class="prod-name">${p.cliente}</div>
               ${tagLocalidad}
             </div>
