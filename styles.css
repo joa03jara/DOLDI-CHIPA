@@ -1238,10 +1238,14 @@ main {
 .pedido-card-info { flex: 1; min-width: 0; }
 .pedido-card-badges {
   display: flex;
+  flex-wrap: wrap; /* con un nombre largo, baja de renglón en vez de quedar tapado por el botón */
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   margin-bottom: 4px;
 }
+.pedido-card-badges .prod-name { min-width: 0; overflow-wrap: anywhere; }
+.tag-sigue { background: var(--orange); color: #2a1a08; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.tag-local { background: var(--orange-soft); color: var(--orange-dark); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
 .pedido-card-mapa {
   border: 0;
   border-radius: 10px;
