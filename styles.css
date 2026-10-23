@@ -1446,3 +1446,4 @@ body.modo-repartidor .drawer-overlay { display: none !important; }
 .gasto-icono-btn { flex-shrink: 0; width: 54px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg); font-size: 26px; line-height: 1; padding: 0; cursor: pointer; }
 .gasto-icono-btn:active { transform: scale(.96); }
 #gasto-picker { margin-top: 10px; }
+.ubic-cab { display: flex; align-items: baseline; justify-content: space-between; }

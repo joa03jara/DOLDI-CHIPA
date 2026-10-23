@@ -2782,6 +2782,7 @@ function actualizarBotonGuardarPedido() {
 }
 
 function elegirLocalidadPedido(valor) {
+  limpiarErrorPedido();
   localidadPedidoActual = valor;
   pintarLocalidadPedido();
   actualizarBotonGuardarPedido();
@@ -2883,11 +2884,31 @@ function abrirPedidoForm(editId) {
 
 // La ubicación solo tiene sentido si el pedido lleva envío.
 function actualizarVisibilidadDireccion() {
-  const conEnvio = !!pedidoEnvioActual;
-  document.getElementById('ped-direccion-wrap').style.display = conEnvio ? 'block' : 'none';
+  // Se ve desde el principio (antes de elegir envío) y solo se esconde si se eligió "Sin envío".
+  document.getElementById('ped-direccion-wrap').style.display = pedidoEnvioActual === null ? 'none' : 'block';
+}
+
+// El aviso rojo de un formulario se borra apenas se toca algo que lo arregla.
+function limpiarErrorPedido() {
+  document.querySelectorAll('#overlay-pedido-form .form-error').forEach(e => e.remove());
+}
+
+// Pega lo último que se copió (el link que mandó el cliente) en el casillero.
+async function pegarUbicacion() {
+  const campo = document.getElementById('ped-direccion');
+  try {
+    const t = (await navigator.clipboard.readText()).trim();
+    if (!t) throw new Error('vacío');
+    campo.value = t;
+    limpiarErrorPedido();
+  } catch (e) {
+    campo.focus();
+    showToast('No pude leer lo copiado. Tocá el casillero y pegalo a mano.');
+  }
 }
 
 function renderPedidoItems() {
+  limpiarErrorPedido();
   const wrap = document.getElementById('ped-items-lista');
   if (pedidoItemsActual.length === 0) {
     wrap.innerHTML = '<div class="empty">Todavía no agregaste productos.</div>';
@@ -2934,6 +2955,7 @@ function renderPedidoEnvioOpts() {
 }
 
 function seleccionarEnvioPedido(key) {
+  limpiarErrorPedido();
   pedidoEnvioActual = key;
   renderPedidoEnvioOpts();
   actualizarTotalPedidoForm();
@@ -3036,23 +3058,34 @@ function resumenItemsPedido(items) {
   return (items || []).map(i => i.label + ' de ' + (STATE.productos[i.prod] ? STATE.productos[i.prod].label : i.prod)).join(', ');
 }
 
+// Busca el link dentro de lo que se pegó (el cliente a veces manda texto antes o después del link).
+function extraerLinkUbicacion(txt) {
+  const m = txt.match(/https?:\/\/[^\s<>"']+/i);
+  return m ? m[0].replace(/[).,;]+$/, '') : null;
+}
+
 function ubicacionHref(direccion) {
   if (!direccion) return null;
   const txt = direccion.trim();
   if (!txt) return null;
-  return /^https?:\/\//i.test(txt) ? txt : ('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(txt));
+  return extraerLinkUbicacion(txt) || ('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(txt));
 }
 
-// Mapa embebido (sin salir de la app). Si el link tiene coordenadas (como los
-// que manda WhatsApp al compartir ubicación), las usa directo; si no, usa el
-// texto tal cual (funciona también con direcciones escritas a mano).
+// Mapa embebido (sin salir de la app). Si lo que se pegó tiene coordenadas (como
+// los links de WhatsApp o de Apple Maps), las usa directo; si es una dirección
+// escrita a mano, usa el texto. Un link sin coordenadas (por ejemplo los cortos
+// de Google, "maps.app.goo.gl/...") no se puede dibujar: en ese caso no se muestra
+// mapa, pero el botón "Cómo llegar" lo abre igual.
 function ubicacionEmbedSrc(direccion) {
   if (!direccion) return null;
   const txt = direccion.trim();
   if (!txt) return null;
-  const matchLatLng = txt.match(/(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/);
-  const query = matchLatLng ? (matchLatLng[1] + ',' + matchLatLng[2]) : txt;
-  return 'https://maps.google.com/maps?q=' + encodeURIComponent(query) + '&z=15&output=embed';
+  let decodificado = txt;
+  try { decodificado = decodeURIComponent(txt); } catch (e) {}
+  const matchLatLng = decodificado.match(/(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/);
+  if (matchLatLng) return 'https://maps.google.com/maps?q=' + encodeURIComponent(matchLatLng[1] + ',' + matchLatLng[2]) + '&z=15&output=embed';
+  if (extraerLinkUbicacion(txt)) return null;
+  return 'https://maps.google.com/maps?q=' + encodeURIComponent(txt) + '&z=15&output=embed';
 }
 
 // Muestra la cantidad EXACTA a producir, sin perder las unidades sueltas
