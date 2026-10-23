@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=20261023a">
+  <link rel="stylesheet" href="styles.css?v=20261023b">
 </head>
 
 <body>
@@ -696,9 +696,10 @@
       <div id="ped-items-lista" style="margin-top:10px;"></div>
       <p class="muted" style="margin:14px 0 6px; font-weight:600;">Envío</p>
       <div class="grid3" id="ped-envio-opts" style="margin-bottom:14px;"></div>
-      <div class="form-field" id="ped-direccion-wrap" style="display:none;">
-        <label>Ubicación (opcional)</label>
-        <textarea id="ped-direccion" rows="2" placeholder="Pegá acá el link de ubicación que te mandaron por WhatsApp o Instagram" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--bg); color:var(--text); font-family:inherit; resize:vertical;"></textarea>
+      <div class="form-field" id="ped-direccion-wrap">
+        <div class="ubic-cab"><label for="ped-direccion">Ubicación (opcional)</label><button type="button" class="link-agregar" style="padding:0;" onclick="pegarUbicacion()">Pegar</button></div>
+        <textarea id="ped-direccion" rows="2" autocomplete="off" spellcheck="false" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:var(--bg); color:var(--text); font-family:inherit; resize:vertical;"></textarea>
+        <div class="muted" style="font-size:12px; margin-top:4px;">Pegá el link o la ubicación que te mandaron.</div>
       </div>
       <p class="muted" style="margin:14px 0 6px; font-weight:600;">Localidad</p>
       <div class="grid2" style="margin-bottom:14px;">
@@ -787,7 +788,7 @@
     });
   </script>
 
-  <script src="script.js?v=20261023a"></script>
+  <script src="script.js?v=20261023b"></script>
 </body>
 
 </html>
